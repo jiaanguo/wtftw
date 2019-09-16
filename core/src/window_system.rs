@@ -1,9 +1,9 @@
 extern crate libc;
 
-use std::fmt::{Error, Formatter, Debug};
-use window_manager::WindowManager;
-use config::GeneralConfig;
 use self::libc::{c_int, c_ulong, int32_t};
+use config::GeneralConfig;
+use std::fmt::{Debug, Error, Formatter};
+use window_manager::WindowManager;
 
 pub type Window = u64;
 
@@ -19,8 +19,10 @@ impl Rectangle {
 
     pub fn overlaps(&self, &Rectangle(bx, by, bw, bh): &Rectangle) -> bool {
         let &Rectangle(ax, ay, aw, ah) = self;
-        !(bx >= ax + aw as i32 || bx + bw as i32 <= ax || by >= ay + ah as i32 ||
-          by + bh as i32 <= ay)
+        !(bx >= ax + aw as i32
+            || bx + bw as i32 <= ax
+            || by >= ay + ah as i32
+            || by + bh as i32 <= ay)
     }
 }
 
@@ -174,11 +176,13 @@ pub trait WindowSystem {
     fn hide_window(&self, window: Window);
     fn focus_window(&self, window: Window, window_manager: &WindowManager);
     fn get_focused_window(&self) -> Window;
-    fn configure_window(&self,
-                        window: Window,
-                        window_changes: WindowChanges,
-                        mask: u64,
-                        is_floating: bool);
+    fn configure_window(
+        &self,
+        window: Window,
+        window_changes: WindowChanges,
+        mask: u64,
+        is_floating: bool,
+    );
     /// Check if there are events pending
     fn event_pending(&self) -> bool;
     /// Get the next event from the queue
@@ -203,10 +207,11 @@ pub trait WindowSystem {
     fn warp_pointer(&self, window: Window, x: u32, y: u32);
     fn overrides_redirect(&self, window: Window) -> bool;
     fn update_server_state(&self, manager: &WindowManager);
-    fn process_message(&self,
-                       window_manager: &WindowManager,
-                       config: &GeneralConfig,
-                       window: Window,
-                       atom: c_ulong)
-                       -> WindowManager;
+    fn process_message(
+        &self,
+        window_manager: &WindowManager,
+        config: &GeneralConfig,
+        window: Window,
+        atom: c_ulong,
+    ) -> WindowManager;
 }
