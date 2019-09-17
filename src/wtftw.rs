@@ -32,6 +32,7 @@ fn init_terminal_logger(verbose_mode_enabled: bool) {
     simplelog::CombinedLogger::init(vec![simplelog::TermLogger::new(
         level,
         simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
     )
     .unwrap()])
     .unwrap();

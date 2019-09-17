@@ -10,7 +10,7 @@ use std::borrow::ToOwned;
 use std::collections::BTreeMap;
 use window_manager::WindowManager;
 use window_system::{
-    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem, MOD1MASK, SHIFTMASK,
+    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem, 
 };
 
 use self::dylib::DynamicLibrary;
@@ -114,7 +114,7 @@ impl Config {
             focus_border_color: 0x00B6FFB0,
             border_color: 0x00444444,
             border_width: 2,
-            mod_mask: MOD1MASK,
+            mod_mask: KeyModifiers::MOD1MASK,
             terminal: ("xterm".to_owned(), "".to_owned()),
             logfile: format!("{}/.wtftw.log", home),
             tags: vec![
@@ -162,7 +162,7 @@ impl Config {
         let mod_mask = self.general.mod_mask.clone();
         self.add_key_handler(
             w.get_keycode_from_string("Return"),
-            mod_mask | SHIFTMASK,
+            mod_mask | KeyModifiers::SHIFTMASK,
             Box::new(|m, ws, c| start_terminal(m, ws, c)),
         );
         self.add_key_handler(
@@ -172,7 +172,7 @@ impl Config {
         );
         self.add_key_handler(
             w.get_keycode_from_string("q"),
-            mod_mask | SHIFTMASK,
+            mod_mask | KeyModifiers::SHIFTMASK,
             Box::new(|m, ws, c| exit(m, ws, c)),
         );
     }

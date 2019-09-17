@@ -15,7 +15,7 @@ use wtftw_contrib::layout::{ AvoidStrutsLayout, LayoutCollection, BinarySpacePar
 
 
 #[no_mangle]
-pub extern fn configure(_: &mut WindowManager, w: &WindowSystem, config: &mut Config) {
+pub extern fn configure(_: &mut WindowManager, w: &dyn WindowSystem, config: &mut Config) {
     let modm = MOD1MASK;
 
     config.general.mod_mask = modm;
@@ -28,9 +28,9 @@ pub extern fn configure(_: &mut WindowManager, w: &WindowSystem, config: &mut Co
             GapLayout::new(8, AvoidStrutsLayout::new(vec!(Direction::Up, Direction::Down), MirrorLayout::new(BinarySpacePartition::new()))),
             NoBordersLayout::new(Box::new(FullLayout))));
 
-    config.general.tags = (vec!("一: ターミナル", "二: ウェブ", "三: コード",
-                                "四: メディア", "五: スチーム", "六: ラテック",
-                                "七: 音楽", "八: im", "九: 残り"))
+    config.general.tags = (vec!("1:11", "2:22", "3:33",
+                                "4:44", "5:55", "6:66",
+                                "7:77", "8:88", "9:99"))
         .into_iter().map(String::from).collect();
 
     // Register key handlers
