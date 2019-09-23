@@ -1,13 +1,16 @@
-use config::GeneralConfig;
-use core::rational_rect::RationalRect;
-use core::screen::Screen;
-use core::stack::Stack;
-use core::workspace::Workspace;
-use layout::{Layout, LayoutMessage};
+use super::rational_rect::RationalRect;
+use super::screen::Screen;
+use super::stack::Stack;
+use super::workspace::Workspace;
+use crate::config::GeneralConfig;
+use crate::layout::{Layout, LayoutMessage};
+use crate::window_manager::ScreenDetail;
+use crate::window_system::{Window, WindowSystem};
+
+use log::debug;
+
 use std::collections::BTreeMap;
 use std::iter::repeat;
-use window_manager::ScreenDetail;
-use window_system::{Window, WindowSystem};
 
 pub struct Workspaces {
     /// The currently focused and visible screen

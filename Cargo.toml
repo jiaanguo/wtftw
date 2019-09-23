@@ -1,8 +1,8 @@
 [project]
-
 name = "wtftw"
 version = "0.4.5"
 authors = ["Simon Wollwage"]
+edition = "2018"
 
 [dependencies]
 bitflags = "*"
@@ -11,9 +11,9 @@ getopts = "*"
 log = "*"
 libc = "*"
 dylib = "*"
-simplelog = "*"
 zombie = "*"
 dirs = "*"
+simplelog = "*"
 wtftw_core = { path = "core" }
 
 [dependencies.wtftw_xlib]

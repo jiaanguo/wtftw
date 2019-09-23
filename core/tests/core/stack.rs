@@ -1,6 +1,4 @@
-extern crate wtftw_core;
-
-use self::wtftw_core::core::stack::Stack;
+use wtftw_core::core::stack::Stack;
 
 #[test]
 fn stack_add() {

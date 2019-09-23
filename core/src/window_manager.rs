@@ -1,14 +1,14 @@
-//extern crate collections;
+use crate::config::GeneralConfig;
+use crate::core::rational_rect::RationalRect;
+use crate::core::screen::Screen;
+use crate::core::workspace::Workspace;
+use crate::core::workspaces::Workspaces;
+use crate::layout::LayoutMessage;
+use crate::window_system::Rectangle;
+use crate::window_system::Window;
+use crate::window_system::WindowSystem;
 
-use config::GeneralConfig;
-use core::rational_rect::RationalRect;
-use core::screen::Screen;
-use core::workspace::Workspace;
-use core::workspaces::Workspaces;
-use layout::LayoutMessage;
-use window_system::Rectangle;
-use window_system::Window;
-use window_system::WindowSystem;
+use log::debug;
 
 use std::cmp;
 use std::collections::BTreeMap;

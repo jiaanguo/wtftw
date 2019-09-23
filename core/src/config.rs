@@ -1,19 +1,17 @@
-extern crate dirs;
-extern crate dylib;
-extern crate serde_json;
-
-use core::workspaces::Workspaces;
-use handlers::default::{exit, restart, start_terminal};
-use handlers::{KeyHandler, LogHook, ManageHook, MouseHandler, StartupHook};
-use layout::{Layout, TallLayout};
-use std::borrow::ToOwned;
-use std::collections::BTreeMap;
-use window_manager::WindowManager;
-use window_system::{
-    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem, 
+use crate::core::workspaces::Workspaces;
+use crate::handlers::default::{exit, restart, start_terminal};
+use crate::handlers::{KeyHandler, LogHook, ManageHook, MouseHandler, StartupHook};
+use crate::layout::{Layout, TallLayout};
+use crate::window_manager::WindowManager;
+use crate::window_system::{
+    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem,
 };
 
-use self::dylib::DynamicLibrary;
+use dylib::DynamicLibrary;
+use log::{debug, error, info};
+
+use std::borrow::ToOwned;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::metadata;
 use std::fs::File;
@@ -229,9 +227,9 @@ impl Config {
                                      version = \"0.0.0\"\n\
                                      authors = [\"wtftw\"]\n\n\
                                      [dependencies.wtftw_contrib]
-                                     git = \"https://github.com/Kintaro/wtftw-contrib.git\"\n
+                                     git = \"https://github.com/jiaanguo/wtftw-contrib.git\"\n
                                      [dependencies.wtftw]\n\
-                                     git = \"https://github.com/Kintaro/wtftw.git\"\n\n\
+                                     git = \"https://github.com/jiaanguo/wtftw.git\"\n\n\
                                      [lib]\n\
                                      name = \"config\"\n\
                                      crate-type = [\"dylib\"]"

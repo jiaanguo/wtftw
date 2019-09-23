@@ -1,13 +1,6 @@
-#[macro_use]
-extern crate log;
-extern crate getopts;
-extern crate serde_json;
-extern crate simplelog;
-extern crate wtftw_core;
-extern crate wtftw_xlib;
-extern crate zombie;
-
 use getopts::Options;
+use log::{debug, info};
+use simplelog;
 use std::env;
 use std::ops::Deref;
 use std::rc::Rc;

@@ -1,12 +1,9 @@
-extern crate libc;
-extern crate serde_json;
-
-use config::{Config, GeneralConfig};
-use core::workspaces::Workspaces;
+use crate::config::{Config, GeneralConfig};
+use crate::core::workspaces::Workspaces;
+use crate::window_manager::WindowManager;
+use crate::window_system::Window;
+use crate::window_system::WindowSystem;
 use std::rc::Rc;
-use window_manager::WindowManager;
-use window_system::Window;
-use window_system::WindowSystem;
 
 pub type KeyHandler =
     Box<dyn Fn(WindowManager, Rc<dyn WindowSystem>, &GeneralConfig) -> WindowManager>;
@@ -22,9 +19,14 @@ extern "C" {
 
 /// Some default handlers for easier config scripts
 pub mod default {
-    use config::GeneralConfig;
-    use core::workspaces::Workspaces;
-    use handlers::libc::execvp;
+    use crate::config::GeneralConfig;
+    use crate::core::workspaces::Workspaces;
+    use crate::window_manager::WindowManager;
+    use crate::window_system::Window;
+    use crate::window_system::WindowSystem;
+    use libc::execvp;
+    use log::debug;
+    use serde_json::json;
     use std::borrow::ToOwned;
     use std::env;
     use std::ffi::CString;
@@ -33,9 +35,6 @@ pub mod default {
     use std::ptr::null;
     use std::rc::Rc;
     use std::thread::spawn;
-    use window_manager::WindowManager;
-    use window_system::Window;
-    use window_system::WindowSystem;
 
     pub fn start_terminal(
         window_manager: WindowManager,

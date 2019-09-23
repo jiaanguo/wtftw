@@ -1,9 +1,10 @@
-extern crate libc;
+use crate::config::GeneralConfig;
+use crate::window_manager::WindowManager;
 
-use self::libc::{c_int, c_ulong};
-use config::GeneralConfig;
+use bitflags::bitflags;
+use libc::{c_int, c_ulong};
+
 use std::fmt::{Debug, Error, Formatter};
-use window_manager::WindowManager;
 
 pub type Window = u64;
 

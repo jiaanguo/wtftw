@@ -1,7 +1,7 @@
-use config::GeneralConfig;
-use core::stack::Stack;
-use layout::{Layout, LayoutMessage};
-use window_system::{Window, WindowSystem};
+use super::stack::Stack;
+use crate::config::GeneralConfig;
+use crate::layout::{Layout, LayoutMessage};
+use crate::window_system::{Window, WindowSystem};
 
 /// Represents a single workspace with a `tag` (name),
 /// `id`, a `layout` and a `stack` for all windows

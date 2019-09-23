@@ -1,30 +1,24 @@
-#[macro_use]
-
-extern crate log;
-extern crate libc;
-extern crate x11;
-extern crate wtftw_core;
-
+use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_ulong};
+use log::{debug, error};
 use std::borrow::ToOwned;
 use wtftw_core::config::GeneralConfig;
-use libc::{c_char, c_uchar, c_int, c_uint, c_long, c_ulong};
-use x11::xlib;
 use x11::xinerama;
+use x11::xlib;
 
 use std::env::vars;
-use std::str;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::io::Write;
+use std::mem::transmute;
+use std::mem::MaybeUninit;
 use std::ptr::null;
 use std::ptr::null_mut;
-use std::mem::transmute;
-use std::mem::uninitialized;
-use std::str::from_utf8;
 use std::slice::from_raw_parts;
-use std::ffi::CString;
-use std::ffi::CStr;
-use std::io::Write;
+use std::str;
+use std::str::from_utf8;
 
-use wtftw_core::window_system::*;
 use wtftw_core::window_manager::*;
+use wtftw_core::window_system::*;
 
 const KEYPRESS: usize = 2;
 const BUTTONPRESS: usize = 4;
@@ -64,11 +58,13 @@ impl XlibWindowSystem {
             let display = xlib::XOpenDisplay(null());
 
             if display == null_mut() {
-                error!("No display found at {}",
-                       vars()
-                           .find(|&(ref d, _)| *d == "DISPLAY".to_owned())
-                           .map(|(_, v)| v)
-                           .unwrap());
+                error!(
+                    "No display found at {}",
+                    vars()
+                        .find(|&(ref d, _)| *d == "DISPLAY".to_owned())
+                        .map(|(_, v)| v)
+                        .unwrap()
+                );
                 panic!("Exiting");
             }
 
@@ -102,69 +98,83 @@ impl XlibWindowSystem {
             let mut attributes = 1u32;
             let attrib_ptr: *mut u32 = &mut attributes;
 
-            res.ewmh_child = xlib::XCreateWindow(display,
-                                                 root,
-                                                 -1,
-                                                 -1,
-                                                 1,
-                                                 1,
-                                                 0, // border
-                                                 0, // depth (CopyFromParent)
-                                                 2, // InputOnly
-                                                 ::std::ptr::null_mut(),
-                                                 1 << 9,
-                                                 attrib_ptr as *mut xlib::XSetWindowAttributes)
-                             as u64;
+            res.ewmh_child = xlib::XCreateWindow(
+                display,
+                root,
+                -1,
+                -1,
+                1,
+                1,
+                0, // border
+                0, // depth (CopyFromParent)
+                2, // InputOnly
+                ::std::ptr::null_mut(),
+                1 << 9,
+                attrib_ptr as *mut xlib::XSetWindowAttributes,
+            ) as u64;
 
             let mut f = ::std::fs::File::create("/tmp/window_id.txt").unwrap();
-            f.write_all(format!("WindowID: {}", res.ewmh_child).as_bytes()).unwrap();
+            f.write_all(format!("WindowID: {}", res.ewmh_child).as_bytes())
+                .unwrap();
 
             let mut child: u32 = res.ewmh_child as u32;
             let child_ptr: *mut u32 = &mut child;
-            xlib::XChangeProperty(display,
-                                  res.ewmh_child as c_ulong,
-                                  wmcheck as c_ulong,
-                                  window as c_ulong,
-                                  32,
-                                  0,
-                                  child_ptr as *mut c_uchar,
-                                  1);
-            xlib::XChangeProperty(display,
-                                  res.ewmh_child as c_ulong,
-                                  wmname as c_ulong,
-                                  utf8 as c_ulong,
-                                  8,
-                                  0,
-                                  name_ptr as *mut c_uchar,
-                                  5);
-            xlib::XChangeProperty(display,
-                                  root,
-                                  wmcheck as c_ulong,
-                                  window as c_ulong,
-                                  32,
-                                  0,
-                                  child_ptr as *mut c_uchar,
-                                  1);
-            xlib::XChangeProperty(display,
-                                  root,
-                                  wmname as c_ulong,
-                                  utf8 as c_ulong,
-                                  8,
-                                  0,
-                                  name_ptr as *mut c_uchar,
-                                  5);
+            xlib::XChangeProperty(
+                display,
+                res.ewmh_child as c_ulong,
+                wmcheck as c_ulong,
+                window as c_ulong,
+                32,
+                0,
+                child_ptr as *mut c_uchar,
+                1,
+            );
+            xlib::XChangeProperty(
+                display,
+                res.ewmh_child as c_ulong,
+                wmname as c_ulong,
+                utf8 as c_ulong,
+                8,
+                0,
+                name_ptr as *mut c_uchar,
+                5,
+            );
+            xlib::XChangeProperty(
+                display,
+                root,
+                wmcheck as c_ulong,
+                window as c_ulong,
+                32,
+                0,
+                child_ptr as *mut c_uchar,
+                1,
+            );
+            xlib::XChangeProperty(
+                display,
+                root,
+                wmname as c_ulong,
+                utf8 as c_ulong,
+                8,
+                0,
+                name_ptr as *mut c_uchar,
+                5,
+            );
 
-            let supported = [res.get_atom("_NET_ACTIVE_WINDOW"),
-                             res.get_atom("_NET_NUMBER_OF_DESKTOPS"),
-                             res.get_atom("_NET_CURRENT_DESKTOP")];
-            xlib::XChangeProperty(res.display,
-                                  res.root as c_ulong,
-                                  net_supported as c_ulong,
-                                  atom_type as c_ulong,
-                                  32,
-                                  0,
-                                  supported.as_ptr() as *mut c_uchar,
-                                  supported.len() as i32);
+            let supported = [
+                res.get_atom("_NET_ACTIVE_WINDOW"),
+                res.get_atom("_NET_NUMBER_OF_DESKTOPS"),
+                res.get_atom("_NET_CURRENT_DESKTOP"),
+            ];
+            xlib::XChangeProperty(
+                res.display,
+                res.root as c_ulong,
+                net_supported as c_ulong,
+                atom_type as c_ulong,
+                32,
+                0,
+                supported.as_ptr() as *mut c_uchar,
+                supported.len() as i32,
+            );
 
             //xlib::XMapWindow(res.display, res.ewmh_child);
             //let mut changes = xlib::XWindowChanges {
@@ -190,20 +200,22 @@ impl XlibWindowSystem {
             let mut actual_format_return: c_int = 0;
             let mut nitems_return: c_ulong = 0;
             let mut bytes_after_return: c_ulong = 0;
-            let mut prop_return: *mut c_uchar = uninitialized();
+            let mut prop_return: *mut c_uchar = MaybeUninit::uninit().assume_init();
 
-            let r = xlib::XGetWindowProperty(self.display,
-                                             window as c_ulong,
-                                             atom as c_ulong,
-                                             0,
-                                             libc::c_long::max_value(),
-                                             0,
-                                             0,
-                                             &mut actual_type_return,
-                                             &mut actual_format_return,
-                                             &mut nitems_return,
-                                             &mut bytes_after_return,
-                                             &mut prop_return);
+            let r = xlib::XGetWindowProperty(
+                self.display,
+                window as c_ulong,
+                atom as c_ulong,
+                0,
+                libc::c_long::max_value(),
+                0,
+                0,
+                &mut actual_type_return,
+                &mut actual_format_return,
+                &mut nitems_return,
+                &mut bytes_after_return,
+                &mut prop_return,
+            );
 
             if r != 0 {
                 None
@@ -211,10 +223,12 @@ impl XlibWindowSystem {
                 if actual_format_return == 0 {
                     None
                 } else {
-                    Some(from_raw_parts(prop_return as *const c_ulong, nitems_return as usize)
-                        .iter()
-                        .map(|&c| c as u64)
-                        .collect())
+                    Some(
+                        from_raw_parts(prop_return as *const c_ulong, nitems_return as usize)
+                            .iter()
+                            .map(|&c| c as u64)
+                            .collect(),
+                    )
                 }
             }
         }
@@ -243,32 +257,34 @@ impl XlibWindowSystem {
 
     fn get_protocols(&self, window: Window) -> Vec<u64> {
         unsafe {
-            let mut protocols: *mut c_ulong = uninitialized();
+            let mut protocols: *mut c_ulong = MaybeUninit::uninit().assume_init();
             let mut num = 0;
             xlib::XGetWMProtocols(self.display, window as c_ulong, &mut protocols, &mut num);
             let slice = from_raw_parts(protocols, num as usize);
-            slice.iter()
-                .map(|&c| c as u64)
-                .collect::<Vec<_>>()
+            slice.iter().map(|&c| c as u64).collect::<Vec<_>>()
         }
     }
 
-    fn change_property(&self,
-                       window: Window,
-                       property: u64,
-                       typ: u64,
-                       mode: c_int,
-                       dat: &mut [c_ulong]) {
+    fn change_property(
+        &self,
+        window: Window,
+        property: u64,
+        typ: u64,
+        mode: c_int,
+        dat: &mut [c_ulong],
+    ) {
         unsafe {
             let ptr: *mut u8 = transmute(dat.as_mut_ptr());
-            xlib::XChangeProperty(self.display,
-                                  window as c_ulong,
-                                  property as c_ulong,
-                                  typ as c_ulong,
-                                  32,
-                                  mode,
-                                  ptr,
-                                  2);
+            xlib::XChangeProperty(
+                self.display,
+                window as c_ulong,
+                property as c_ulong,
+                typ as c_ulong,
+                32,
+                mode,
+                ptr,
+                2,
+            );
         }
     }
 
@@ -277,16 +293,18 @@ impl XlibWindowSystem {
             debug!("grabbing mouse buttons for {}", window);
             for &button in (vec![1, 2, 3]).iter() {
                 unsafe {
-                    xlib::XGrabButton(self.display,
-                                      button,
-                                      0x8000,
-                                      window as c_ulong,
-                                      0,
-                                      4,
-                                      1,
-                                      0,
-                                      0,
-                                      0);
+                    xlib::XGrabButton(
+                        self.display,
+                        button,
+                        0x8000,
+                        window as c_ulong,
+                        0,
+                        4,
+                        1,
+                        0,
+                        0,
+                        0,
+                    );
                 }
             }
         } else {
@@ -362,16 +380,24 @@ impl WindowSystem for XlibWindowSystem {
             // If xinerama is not active, just return the default display
             // dimensions and "emulate" xinerama.
             if num == 0 {
-                return vec![Rectangle(0, 0, self.get_display_width(0), self.get_display_height(0))];
+                return vec![Rectangle(
+                    0,
+                    0,
+                    self.get_display_width(0),
+                    self.get_display_height(0),
+                )];
             }
 
             let screens = from_raw_parts(screen_ptr, num as usize).to_vec();
-            screens.into_iter()
+            screens
+                .into_iter()
                 .map(|s| {
-                    Rectangle(s.x_org as i32,
-                              s.y_org as i32,
-                              s.width as u32,
-                              s.height as u32)
+                    Rectangle(
+                        s.x_org as i32,
+                        s.y_org as i32,
+                        s.width as u32,
+                        s.height as u32,
+                    )
                 })
                 .collect()
         }
@@ -394,33 +420,37 @@ impl WindowSystem for XlibWindowSystem {
             return "root".to_owned();
         }
         unsafe {
-            let mut name: *mut c_char = uninitialized();
+            let mut name: *mut c_char = MaybeUninit::uninit().assume_init();
             let result = xlib::XFetchName(self.display, window as c_ulong, &mut name);
             if 0 == result || name.is_null() {
                 let mut actual_type_return: c_ulong = 0;
                 let mut actual_format_return: c_int = 0;
                 let mut nitems_return: c_ulong = 0;
                 let mut bytes_after_return: c_ulong = 0;
-                let mut prop_return: *mut c_uchar = uninitialized();
+                let mut prop_return: *mut c_uchar = MaybeUninit::uninit().assume_init();
 
                 let atom =
                     xlib::XInternAtom(self.display, CString::new("WM_NAME").unwrap().as_ptr(), 0);
-                let r = xlib::XGetWindowProperty(self.display,
-                                                 window as c_ulong,
-                                                 atom as c_ulong,
-                                                 0,
-                                                 libc::c_long::max_value(),
-                                                 0,
-                                                 0,
-                                                 &mut actual_type_return,
-                                                 &mut actual_format_return,
-                                                 &mut nitems_return,
-                                                 &mut bytes_after_return,
-                                                 &mut prop_return);
+                let r = xlib::XGetWindowProperty(
+                    self.display,
+                    window as c_ulong,
+                    atom as c_ulong,
+                    0,
+                    libc::c_long::max_value(),
+                    0,
+                    0,
+                    &mut actual_type_return,
+                    &mut actual_format_return,
+                    &mut nitems_return,
+                    &mut bytes_after_return,
+                    &mut prop_return,
+                );
                 if r != 0 {
                     "Unknown".to_owned()
                 } else {
-                    CStr::from_ptr(prop_return as *const c_char).to_string_lossy().into_owned()
+                    CStr::from_ptr(prop_return as *const c_char)
+                        .to_string_lossy()
+                        .into_owned()
                 }
             } else {
                 str::from_utf8_unchecked(CStr::from_ptr(name as *const c_char).to_bytes())
@@ -431,14 +461,16 @@ impl WindowSystem for XlibWindowSystem {
 
     fn get_class_name(&self, window: Window) -> String {
         unsafe {
-            let mut class_hint: xlib::XClassHint = uninitialized();
+            let mut class_hint: xlib::XClassHint = MaybeUninit::uninit().assume_init();
             let rs = xlib::XGetClassHint(self.display, window as c_ulong, &mut class_hint);
 
             let result = if rs == 0 || class_hint.res_class.is_null() {
                 "unknown".to_owned()
             } else {
                 debug!("getting class name");
-                CStr::from_ptr(class_hint.res_class).to_string_lossy().into_owned()
+                CStr::from_ptr(class_hint.res_class)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             debug!("class name is {}", result);
@@ -449,14 +481,16 @@ impl WindowSystem for XlibWindowSystem {
 
     fn get_role_name(&self, window: Window) -> String {
         unsafe {
-            let mut class_hint: xlib::XClassHint = uninitialized();
+            let mut class_hint: xlib::XClassHint = MaybeUninit::uninit().assume_init();
             let rs = xlib::XGetClassHint(self.display, window as c_ulong, &mut class_hint);
 
             let result = if rs == 0 || class_hint.res_name.is_null() {
                 "unknown".to_owned()
             } else {
                 debug!("getting role name");
-                CStr::from_ptr(class_hint.res_name).to_string_lossy().into_owned()
+                CStr::from_ptr(class_hint.res_name)
+                    .to_string_lossy()
+                    .into_owned()
             };
 
             debug!("role name is {}", result);
@@ -468,15 +502,17 @@ impl WindowSystem for XlibWindowSystem {
     fn get_windows(&self) -> Vec<Window> {
         unsafe {
             let mut unused: c_ulong = 0;
-            let mut children: *mut c_ulong = uninitialized();
+            let mut children: *mut c_ulong = MaybeUninit::uninit().assume_init();
             let children_ptr: *mut *mut c_ulong = &mut children;
             let mut num_children: c_uint = 0;
-            xlib::XQueryTree(self.display,
-                             self.root as c_ulong,
-                             &mut unused,
-                             &mut unused,
-                             children_ptr,
-                             &mut num_children);
+            xlib::XQueryTree(
+                self.display,
+                self.root as c_ulong,
+                &mut unused,
+                &mut unused,
+                children_ptr,
+                &mut num_children,
+            );
             let const_children: *const u64 = children as *const u64;
             debug!("Found {} windows", num_children);
             from_raw_parts(const_children, num_children as usize)
@@ -498,7 +534,7 @@ impl WindowSystem for XlibWindowSystem {
 
     fn get_window_border_width(&self, window: Window) -> u32 {
         unsafe {
-            let mut attributes: xlib::XWindowAttributes = uninitialized();
+            let mut attributes: xlib::XWindowAttributes = MaybeUninit::uninit().assume_init();
             xlib::XGetWindowAttributes(self.display, window as c_ulong, &mut attributes);
             attributes.border_width as u32
         }
@@ -531,7 +567,6 @@ impl WindowSystem for XlibWindowSystem {
             self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
             xlib::XSelectInput(self.display, window as c_ulong, 0x420010);
         }
-
     }
 
     fn show_window(&self, window: Window) {
@@ -549,7 +584,6 @@ impl WindowSystem for XlibWindowSystem {
             xlib::XSelectInput(self.display, window as c_ulong, 0x420010);
             let atom = self.get_atom("WM_STATE");
             self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
-
         }
     }
 
@@ -569,11 +603,13 @@ impl WindowSystem for XlibWindowSystem {
         }
     }
 
-    fn configure_window(&self,
-                        window: Window,
-                        window_changes: WindowChanges,
-                        mask: u64,
-                        is_floating: bool) {
+    fn configure_window(
+        &self,
+        window: Window,
+        window_changes: WindowChanges,
+        mask: u64,
+        is_floating: bool,
+    ) {
         unsafe {
             let result = if is_floating {
                 let mut xlib_window_changes = xlib::XWindowChanges {
@@ -585,18 +621,20 @@ impl WindowSystem for XlibWindowSystem {
                     sibling: window_changes.sibling as c_ulong,
                     stack_mode: window_changes.stack_mode as i32,
                 };
-                xlib::XConfigureWindow(self.display,
-                                       window as c_ulong,
-                                       mask as u32,
-                                       &mut xlib_window_changes);
+                xlib::XConfigureWindow(
+                    self.display,
+                    window as c_ulong,
+                    mask as u32,
+                    &mut xlib_window_changes,
+                );
             } else {
                 let Rectangle(x, y, w, h) = self.get_geometry(window);
 
-                let mut attributes: xlib::XWindowAttributes = uninitialized();
+                let mut attributes: xlib::XWindowAttributes = MaybeUninit::uninit().assume_init();
                 xlib::XGetWindowAttributes(self.display, window as c_ulong, &mut attributes);
 
-                let mut configure_event: xlib::XConfigureEvent = uninitialized();
-
+                let mut configure_event: xlib::XConfigureEvent =
+                    MaybeUninit::uninit().assume_init();
 
                 configure_event.type_ = CONFIGURENOTIFY as i32;
                 configure_event.x = attributes.x;
@@ -609,13 +647,10 @@ impl WindowSystem for XlibWindowSystem {
 
                 let mut event = xlib::XEvent::from(configure_event);
 
-                debug!("sending configure notification for window {}: ({}, {}) {}x{} redirect: {}",
-                       window,
-                       x,
-                       y,
-                       w,
-                       h,
-                       attributes.override_redirect);
+                debug!(
+                    "sending configure notification for window {}: ({}, {}) {}x{} redirect: {}",
+                    window, x, y, w, h, attributes.override_redirect
+                );
                 xlib::XSendEvent(self.display, window as c_ulong, 0, 0, &mut event);
             };
 
@@ -645,21 +680,27 @@ impl WindowSystem for XlibWindowSystem {
         match event_type as usize {
             CLIENTMESSAGE => {
                 let event = xlib::XClientMessageEvent::from(event);
-                let data: [i32; 5] = [event.data.get_long(0) as i32,
-                                      event.data.get_long(1) as i32,
-                                      event.data.get_long(2) as i32,
-                                      event.data.get_long(3) as i32,
-                                      event.data.get_long(4) as i32];
-                WindowSystemEvent::ClientMessageEvent(event.window as u64,
-                                                      event.message_type,
-                                                      event.format,
-                                                      data)
+                let data: [i32; 5] = [
+                    event.data.get_long(0) as i32,
+                    event.data.get_long(1) as i32,
+                    event.data.get_long(2) as i32,
+                    event.data.get_long(3) as i32,
+                    event.data.get_long(4) as i32,
+                ];
+                WindowSystemEvent::ClientMessageEvent(
+                    event.window as u64,
+                    event.message_type,
+                    event.format,
+                    data,
+                )
             }
             PROPERTYNOTIFY => {
                 let event = xlib::XPropertyEvent::from(event);
-                WindowSystemEvent::PropertyMessageEvent(event.window as u64 == self.root,
-                                                        event.window as u64,
-                                                        event.atom)
+                WindowSystemEvent::PropertyMessageEvent(
+                    event.window as u64 == self.root,
+                    event.window as u64,
+                    event.atom,
+                )
             }
             CONFIGUREREQUEST => {
                 let event = xlib::XConfigureRequestEvent::from(event);
@@ -673,9 +714,11 @@ impl WindowSystem for XlibWindowSystem {
                     stack_mode: event.detail as u32,
                 };
 
-                WindowSystemEvent::ConfigurationRequest(event.window as u64,
-                                                        window_changes,
-                                                        event.value_mask as u64)
+                WindowSystemEvent::ConfigurationRequest(
+                    event.window as u64,
+                    window_changes,
+                    event.value_mask as u64,
+                )
             }
             CONFIGURENOTIFY => {
                 let event = xlib::XConfigureEvent::from(event);
@@ -715,11 +758,13 @@ impl WindowSystem for XlibWindowSystem {
                     button: event.button,
                     mask: KeyModifiers::from_bits(0xEF & event.state as u32).unwrap(),
                 };
-                WindowSystemEvent::ButtonPressed(event.window as u64,
-                                                 event.subwindow as u64,
-                                                 button,
-                                                 event.x_root as u32,
-                                                 event.y_root as u32)
+                WindowSystemEvent::ButtonPressed(
+                    event.window as u64,
+                    event.subwindow as u64,
+                    button,
+                    event.x_root as u32,
+                    event.y_root as u32,
+                )
             }
             BUTTONRELEASE => WindowSystemEvent::ButtonReleased,
             KEYPRESS => unsafe {
@@ -744,36 +789,42 @@ impl WindowSystem for XlibWindowSystem {
     fn grab_keys(&self, keys: Vec<KeyCommand>) {
         for &key in keys.iter() {
             unsafe {
-                xlib::XGrabKey(self.display,
-                               xlib::XKeysymToKeycode(self.display, key.key as c_ulong) as i32,
-                               key.mask.get_mask(),
-                               self.root as c_ulong,
-                               1,
-                               1,
-                               1);
-                xlib::XGrabKey(self.display,
-                               xlib::XKeysymToKeycode(self.display, key.key as c_ulong) as i32,
-                               key.mask.get_mask() | 0x10,
-                               self.root as c_ulong,
-                               1,
-                               1,
-                               1);
+                xlib::XGrabKey(
+                    self.display,
+                    xlib::XKeysymToKeycode(self.display, key.key as c_ulong) as i32,
+                    key.mask.get_mask(),
+                    self.root as c_ulong,
+                    1,
+                    1,
+                    1,
+                );
+                xlib::XGrabKey(
+                    self.display,
+                    xlib::XKeysymToKeycode(self.display, key.key as c_ulong) as i32,
+                    key.mask.get_mask() | 0x10,
+                    self.root as c_ulong,
+                    1,
+                    1,
+                    1,
+                );
             }
         }
     }
 
     fn grab_button(&self, button: MouseCommand) {
         unsafe {
-            xlib::XGrabButton(self.display,
-                              button.button,
-                              button.mask.get_mask(),
-                              self.root as c_ulong,
-                              0,
-                              4,
-                              1,
-                              0,
-                              0,
-                              0);
+            xlib::XGrabButton(
+                self.display,
+                button.button,
+                button.mask.get_mask(),
+                self.root as c_ulong,
+                0,
+                4,
+                1,
+                0,
+                0,
+                0,
+            );
         }
     }
 
@@ -793,8 +844,7 @@ impl WindowSystem for XlibWindowSystem {
         unsafe {
             let mut event = xlib::XEvent { pad: [0; 24] };
             xlib::XSync(self.display, 0);
-            while xlib::XCheckMaskEvent(self.display, 16, &mut event) != 0 {
-            }
+            while xlib::XCheckMaskEvent(self.display, 16, &mut event) != 0 {}
         }
     }
 
@@ -802,26 +852,27 @@ impl WindowSystem for XlibWindowSystem {
         unsafe {
             let mut event = xlib::XEvent { pad: [0; 24] };
             xlib::XSync(self.display, 0);
-            while xlib::XCheckMaskEvent(self.display, 0x40, &mut event) != 0 {
-            }
+            while xlib::XCheckMaskEvent(self.display, 0x40, &mut event) != 0 {}
         }
     }
 
     fn get_geometry(&self, window: Window) -> Rectangle {
         unsafe {
-            let mut attributes: xlib::XWindowAttributes = uninitialized();
+            let mut attributes: xlib::XWindowAttributes = MaybeUninit::uninit().assume_init();
             xlib::XGetWindowAttributes(self.display, window as c_ulong, &mut attributes);
 
-            Rectangle(attributes.x as i32,
-                      attributes.y as i32,
-                      attributes.width as u32,
-                      attributes.height as u32)
+            Rectangle(
+                attributes.x as i32,
+                attributes.y as i32,
+                attributes.width as u32,
+                attributes.height as u32,
+            )
         }
     }
 
     fn get_size_hints(&self, window: Window) -> SizeHint {
         unsafe {
-            let mut size_hint: xlib::XSizeHints = uninitialized();
+            let mut size_hint: xlib::XSizeHints = MaybeUninit::uninit().assume_init();
             let mut tmp: c_long = 0;
             xlib::XGetWMNormalHints(self.display, window as c_ulong, &mut size_hint, &mut tmp);
 
@@ -847,9 +898,11 @@ impl WindowSystem for XlibWindowSystem {
     fn restack_windows(&self, w: Vec<Window>) {
         unsafe {
             let mut windows = w.iter().map(|&x| x as c_ulong).collect::<Vec<_>>();
-            xlib::XRestackWindows(self.display,
-                                  (&mut windows[..]).as_mut_ptr(),
-                                  windows.len() as i32);
+            xlib::XRestackWindows(
+                self.display,
+                (&mut windows[..]).as_mut_ptr(),
+                windows.len() as i32,
+            );
         }
     }
 
@@ -865,12 +918,13 @@ impl WindowSystem for XlibWindowSystem {
             let wmprotocols = self.get_atom("WM_PROTOCOLS");
             let protocols = self.get_protocols(window);
 
-            debug!("supported protocols: {:?} (wmdelete = {:?})",
-                   protocols,
-                   wmdelete);
+            debug!(
+                "supported protocols: {:?} (wmdelete = {:?})",
+                protocols, wmdelete
+            );
 
             if protocols.iter().any(|x| *x == wmdelete) {
-                let mut data: xlib::ClientMessageData = uninitialized();
+                let mut data: xlib::ClientMessageData = MaybeUninit::uninit().assume_init();
                 data.set_long(0, (wmdelete >> 32) as c_long);
                 data.set_long(0, (wmdelete & 0xFFFFFFFF) as c_long);
                 let mut event = xlib::XEvent::from(xlib::XClientMessageEvent {
@@ -905,34 +959,40 @@ impl WindowSystem for XlibWindowSystem {
 
         unsafe {
             xlib::XSelectInput(self.display, self.root as c_ulong, 0x1A0034);
-            xlib::XChangeProperty(self.display,
-                                  self.root as c_ulong,
-                                  net_current_desktop as c_ulong,
-                                  i32_type as c_ulong,
-                                  32,
-                                  0,
-                                  current_desktop_ptr as *mut c_uchar,
-                                  1);
-            xlib::XChangeProperty(self.display,
-                                  self.root as c_ulong,
-                                  net_number_desktops as c_ulong,
-                                  i32_type as c_ulong,
-                                  32,
-                                  0,
-                                  number_desktops_ptr as *mut c_uchar,
-                                  1);
+            xlib::XChangeProperty(
+                self.display,
+                self.root as c_ulong,
+                net_current_desktop as c_ulong,
+                i32_type as c_ulong,
+                32,
+                0,
+                current_desktop_ptr as *mut c_uchar,
+                1,
+            );
+            xlib::XChangeProperty(
+                self.display,
+                self.root as c_ulong,
+                net_number_desktops as c_ulong,
+                i32_type as c_ulong,
+                32,
+                0,
+                number_desktops_ptr as *mut c_uchar,
+                1,
+            );
 
             if let Some(win) = window {
                 let w: u32 = win as u32;
                 let win_ptr: *const u32 = &w;
-                xlib::XChangeProperty(self.display,
-                                      self.root as c_ulong,
-                                      net_active_window as c_ulong,
-                                      window_atom as c_ulong,
-                                      32,
-                                      0,
-                                      win_ptr as *mut c_uchar,
-                                      1);
+                xlib::XChangeProperty(
+                    self.display,
+                    self.root as c_ulong,
+                    net_active_window as c_ulong,
+                    window_atom as c_ulong,
+                    32,
+                    0,
+                    win_ptr as *mut c_uchar,
+                    1,
+                );
             }
             xlib::XSync(self.display, 0);
             xlib::XSelectInput(self.display, self.root as c_ulong, 0x5A0034);
@@ -946,15 +1006,17 @@ impl WindowSystem for XlibWindowSystem {
         let mut tmp: c_int = 0;
         let mut tmp2: c_uint = 0;
         unsafe {
-            xlib::XQueryPointer(self.display,
-                                window as c_ulong,
-                                &mut tmp_win,
-                                &mut tmp_win,
-                                &mut x,
-                                &mut y,
-                                &mut tmp,
-                                &mut tmp,
-                                &mut tmp2);
+            xlib::XQueryPointer(
+                self.display,
+                window as c_ulong,
+                &mut tmp_win,
+                &mut tmp_win,
+                &mut x,
+                &mut y,
+                &mut tmp,
+                &mut tmp,
+                &mut tmp2,
+            );
         }
 
         (x as u32, y as u32)
@@ -962,24 +1024,35 @@ impl WindowSystem for XlibWindowSystem {
 
     fn warp_pointer(&self, window: Window, x: u32, y: u32) {
         unsafe {
-            xlib::XWarpPointer(self.display, 0, window as c_ulong, 0, 0, 0, 0, x as i32, y as i32);
+            xlib::XWarpPointer(
+                self.display,
+                0,
+                window as c_ulong,
+                0,
+                0,
+                0,
+                0,
+                x as i32,
+                y as i32,
+            );
         }
     }
 
     fn overrides_redirect(&self, window: Window) -> bool {
         unsafe {
-            let mut attributes: xlib::XWindowAttributes = uninitialized();
+            let mut attributes: xlib::XWindowAttributes = MaybeUninit::uninit().assume_init();
             xlib::XGetWindowAttributes(self.display, window as c_ulong, &mut attributes);
             attributes.override_redirect != 0
         }
     }
 
-    fn process_message(&self,
-                       window_manager: &WindowManager,
-                       config: &GeneralConfig,
-                       window: Window,
-                       atom: c_ulong)
-                       -> WindowManager {
+    fn process_message(
+        &self,
+        window_manager: &WindowManager,
+        config: &GeneralConfig,
+        window: Window,
+        atom: c_ulong,
+    ) -> WindowManager {
         if atom as u64 == self.get_atom("_NET_CURRENT_DESKTOP") {
             let prop = self.get_property(atom as u64, window).unwrap();
             window_manager.view(self, prop[0] as u32, config)

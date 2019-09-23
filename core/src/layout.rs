@@ -1,10 +1,11 @@
-use config::GeneralConfig;
-use core::stack::Stack;
+use crate::config::GeneralConfig;
+use crate::core::stack::Stack;
+use crate::window_manager::ScreenDetail;
+use crate::window_system::Rectangle;
+use crate::window_system::Window;
+use crate::window_system::WindowSystem;
+
 use std::borrow::ToOwned;
-use window_manager::ScreenDetail;
-use window_system::Rectangle;
-use window_system::Window;
-use window_system::WindowSystem;
 
 #[derive(Clone, Copy)]
 pub enum LayoutMessage {

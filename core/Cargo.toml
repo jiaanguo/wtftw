@@ -2,11 +2,13 @@
 name = "wtftw_core"
 version = "0.3.3"
 authors = ["Simon Wollwage"]
+edition = "2018"
 
 [dependencies]
 bitflags = "*"
 serde_json = "*"
 log = "*"
+simplelog = "*"
 libc = "*"
 dylib = "*"
 dirs = "*"

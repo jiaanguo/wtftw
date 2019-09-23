@@ -1,5 +1,7 @@
-use config::Config;
-use core::workspaces::Workspaces;
+use crate::config::Config;
+use crate::core::workspaces::Workspaces;
+use crate::window_system::*;
+
 use std::convert::AsRef;
 use std::ffi::OsStr;
 use std::process::Child;
@@ -7,7 +9,6 @@ use std::process::Command;
 use std::process::Stdio;
 use std::rc::Rc;
 use std::sync::RwLock;
-use window_system::*;
 
 #[macro_export]
 macro_rules! add_key_handler_str(

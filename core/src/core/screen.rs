@@ -1,9 +1,9 @@
-use config::GeneralConfig;
-use core::stack::Stack;
-use core::workspace::Workspace;
-use layout::LayoutMessage;
-use window_manager::ScreenDetail;
-use window_system::{Window, WindowSystem};
+use super::stack::Stack;
+use super::workspace::Workspace;
+use crate::config::GeneralConfig;
+use crate::layout::LayoutMessage;
+use crate::window_manager::ScreenDetail;
+use crate::window_system::{Window, WindowSystem};
 
 pub struct Screen {
     pub workspace: Workspace,

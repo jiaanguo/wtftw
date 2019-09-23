@@ -1,7 +1,3 @@
-#[macro_use]
-extern crate wtftw;
-extern crate wtftw_contrib;
-
 use std::ops::Deref;
 //use std::ffi::AsOsStr;
 use wtftw::window_system::*;
