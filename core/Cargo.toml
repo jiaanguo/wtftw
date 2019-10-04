@@ -1,6 +1,6 @@
 [project]
 name = "wtftw_core"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Simon Wollwage"]
 edition = "2018"
 
@@ -12,6 +12,7 @@ simplelog = "*"
 libc = "*"
 dylib = "*"
 dirs = "*"
+num = "*"
 
 [lib]
 name = "wtftw_core"

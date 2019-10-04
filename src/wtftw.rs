@@ -63,8 +63,8 @@ fn main() {
 
     // If available, compile the config.general file at ~/.wtftw/config.general.rs
     // and call the config.generalure method
-    config.compile_and_call(&mut window_manager, window_system.deref());
-    window_manager = WindowManager::new(window_system.deref(), &config.general);
+    // config.compile_and_call(&mut window_manager, window_system.deref());
+    // window_manager = WindowManager::new(window_system.deref(), &config.general);
 
     // Output some initial information
     info!("WTFTW - Window Tiling For The Win");

@@ -1,4 +1,4 @@
-use wtftw::layout::Layout;
+use crate::layout::Layout;
 use super::with_borders_layout::WithBordersLayout;
 
 pub struct NoBordersLayout;

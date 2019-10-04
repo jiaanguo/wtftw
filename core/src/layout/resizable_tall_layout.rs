@@ -1,8 +1,8 @@
-use wtftw::config::GeneralConfig;
-use wtftw::core::stack::Stack;
-use wtftw::layout::{Layout, LayoutMessage};
-use wtftw::window_manager::ScreenDetail;
-use wtftw::window_system::{Rectangle, Window, WindowSystem};
+use crate::config::GeneralConfig;
+use crate::core::stack::Stack;
+use crate::layout::{Layout, LayoutMessage};
+use crate::window_manager::ScreenDetail;
+use crate::window_system::{Rectangle, Window, WindowSystem};
 
 use std::borrow::ToOwned;
 use std::iter;

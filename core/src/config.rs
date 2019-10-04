@@ -1,30 +1,36 @@
 use crate::core::workspaces::Workspaces;
-use crate::handlers::default::{exit, restart, start_terminal};
+use crate::handlers::default::{
+    exit, move_window_to_workspace, restart, start_launcher, start_terminal, switch_to_workspace,
+};
 use crate::handlers::{KeyHandler, LogHook, ManageHook, MouseHandler, StartupHook};
-use crate::layout::{Layout, TallLayout};
+use crate::layout::{
+    AvoidStrutsLayout, BinarySpacePartition, Direction, FullLayout, GapLayout, Layout,
+    LayoutCollection, LayoutMessage, MirrorLayout, NoBordersLayout,
+};
 use crate::window_manager::WindowManager;
 use crate::window_system::{
-    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem,
+    KeyCommand, KeyModifiers, MouseButton, MouseCommand, Window, WindowSystem, BUTTON1, BUTTON3,
 };
 
 use dylib::DynamicLibrary;
-use log::{debug, error, info};
+// use log::{debug, error, info};
 
 use std::borrow::ToOwned;
 use std::collections::BTreeMap;
-use std::error::Error;
-use std::fs::metadata;
-use std::fs::File;
-use std::fs::{create_dir_all, read_dir};
-use std::io::Write;
-use std::mem;
-use std::path::Path;
+// use std::error::Error;
+// use std::fs::metadata;
+// use std::fs::File;
+// use std::fs::{create_dir_all, read_dir};
+// use std::io::Write;
+// use std::mem;
+use std::ops::Deref;
+// use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
-use std::process::Command;
+// use std::process::Command;
 use std::rc::Rc;
 use std::sync::RwLock;
-use std::thread::spawn;
+// use std::thread::spawn;
 
 pub struct GeneralConfig {
     /// Whether focus follows mouse movements or
@@ -109,11 +115,11 @@ impl Config {
         // Default version of the config, for fallback
         let general_config = GeneralConfig {
             focus_follows_mouse: true,
-            focus_border_color: 0x00B6FFB0,
-            border_color: 0x00444444,
+            focus_border_color: 0xebebeb,
+            border_color: 0x404040,
             border_width: 2,
             mod_mask: KeyModifiers::MOD1MASK,
-            terminal: ("xterm".to_owned(), "".to_owned()),
+            terminal: (String::from("alacrity"), String::from("")),
             logfile: format!("{}/.wtftw.log", home),
             tags: vec![
                 "1: term".to_owned(),
@@ -121,13 +127,25 @@ impl Config {
                 "3: code".to_owned(),
                 "4: media".to_owned(),
             ],
-            launcher: "dmenu_run".to_owned(),
+            launcher: "rofi".to_owned(),
             pipes: Vec::new(),
-            layout: Box::new(TallLayout {
-                num_master: 1,
-                increment_ratio: 0.3 / 100.0,
-                ratio: 0.5,
-            }),
+            layout: LayoutCollection::new(vec![
+                GapLayout::new(
+                    8,
+                    AvoidStrutsLayout::new(
+                        vec![Direction::Up, Direction::Down],
+                        BinarySpacePartition::new(),
+                    ),
+                ),
+                GapLayout::new(
+                    8,
+                    AvoidStrutsLayout::new(
+                        vec![Direction::Up, Direction::Down],
+                        MirrorLayout::new(BinarySpacePartition::new()),
+                    ),
+                ),
+                NoBordersLayout::new(Box::new(FullLayout)),
+            ]),
         };
 
         let internal_config = InternalConfig::new(
@@ -158,10 +176,12 @@ impl Config {
 
     pub fn default_configuration(&mut self, w: &dyn WindowSystem) {
         let mod_mask = self.general.mod_mask.clone();
+
+        // Some standard key handlers for starting, restarting, etc.
         self.add_key_handler(
-            w.get_keycode_from_string("Return"),
+            w.get_keycode_from_string("q"),
             mod_mask | KeyModifiers::SHIFTMASK,
-            Box::new(|m, ws, c| start_terminal(m, ws, c)),
+            Box::new(|m, ws, c| exit(m, ws, c)),
         );
         self.add_key_handler(
             w.get_keycode_from_string("q"),
@@ -169,9 +189,273 @@ impl Config {
             Box::new(|m, ws, c| restart(m, ws, c)),
         );
         self.add_key_handler(
-            w.get_keycode_from_string("q"),
+            w.get_keycode_from_string("Return"),
             mod_mask | KeyModifiers::SHIFTMASK,
-            Box::new(|m, ws, c| exit(m, ws, c)),
+            Box::new(|m, ws, c| start_terminal(m, ws, c)),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("p"),
+            mod_mask,
+            Box::new(|m, ws, c| start_launcher(m, ws, c)),
+        );
+
+        // Focus and window movement
+        self.add_key_handler(
+            w.get_keycode_from_string("j"),
+            mod_mask,
+            Box::new(|m, w, c| m.windows(w.deref(), c, &|x| x.focus_down())),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("k"),
+            mod_mask,
+            Box::new(|m, w, c| m.windows(w.deref(), c, &|x| x.focus_up())),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("j"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| m.windows(w.deref(), c, &|x| x.swap_down())),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("k"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| m.windows(w.deref(), c, &|x| x.swap_up())),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("Return"),
+            mod_mask,
+            Box::new(|m, w, c| m.windows(w.deref(), c, &|x| x.swap_master())),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("c"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.kill_window(w.deref())
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("t"),
+            mod_mask,
+            Box::new(|m, w, c| match m.workspaces.peek() {
+                Some(window) => m.windows(w.deref(), c, &|x| x.sink(window)),
+                None => m.clone(),
+            }),
+        );
+
+        // Layout messages
+        self.add_key_handler(
+            w.get_keycode_from_string("h"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::Decrease, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("l"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::Increase, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("z"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::DecreaseSlave, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("a"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::IncreaseSlave, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("x"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::IncreaseGap, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("s"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::DecreaseGap, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("comma"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::IncreaseMaster, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("period"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::DecreaseMaster, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("space"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::Next, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("a"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::Prev, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("r"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::TreeRotate, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("s"),
+            mod_mask,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::TreeSwap, w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("u"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(
+                    LayoutMessage::TreeExpandTowards(Direction::Left),
+                    w.deref(),
+                    c,
+                )
+                .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("p"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(
+                    LayoutMessage::TreeExpandTowards(Direction::Right),
+                    w.deref(),
+                    c,
+                )
+                .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("i"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(
+                    LayoutMessage::TreeExpandTowards(Direction::Down),
+                    w.deref(),
+                    c,
+                )
+                .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("o"),
+            mod_mask | KeyModifiers::SHIFTMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(
+                    LayoutMessage::TreeExpandTowards(Direction::Up),
+                    w.deref(),
+                    c,
+                )
+                .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("u"),
+            mod_mask | KeyModifiers::CONTROLMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::TreeShrinkFrom(Direction::Left), w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("p"),
+            mod_mask | KeyModifiers::CONTROLMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(
+                    LayoutMessage::TreeShrinkFrom(Direction::Right),
+                    w.deref(),
+                    c,
+                )
+                .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("i"),
+            mod_mask | KeyModifiers::CONTROLMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::TreeShrinkFrom(Direction::Down), w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        self.add_key_handler(
+            w.get_keycode_from_string("o"),
+            mod_mask | KeyModifiers::CONTROLMASK,
+            Box::new(|m, w, c| {
+                m.send_layout_message(LayoutMessage::TreeShrinkFrom(Direction::Up), w.deref(), c)
+                    .windows(w.deref(), c, &|x| x.clone())
+            }),
+        );
+        // Workspace switching and moving
+        for i in 1usize..10 {
+            self.add_key_handler(
+                w.get_keycode_from_string(&i.to_string()),
+                mod_mask,
+                Box::new(move |m, w, c| switch_to_workspace(m, w, c, i - 1)),
+            );
+
+            self.add_key_handler(
+                w.get_keycode_from_string(&i.to_string()),
+                mod_mask | KeyModifiers::SHIFTMASK,
+                Box::new(move |m, w, c| move_window_to_workspace(m, w, c, i - 1)),
+            );
+        }
+
+        self.add_mouse_handler(
+            BUTTON1,
+            mod_mask,
+            Box::new(|m, w, c, s| {
+                m.focus(s, w.deref(), c)
+                    .mouse_move_window(w.deref(), c, s)
+                    .windows(w.deref(), c, &|x| x.shift_master())
+            }),
+        );
+
+        self.add_mouse_handler(
+            BUTTON3,
+            mod_mask,
+            Box::new(|m, w, c, s| {
+                m.focus(s, w.deref(), c)
+                    .mouse_resize_window(w.deref(), c, s)
+                    .windows(w.deref(), c, &|x| x.shift_master())
+            }),
         );
     }
 
@@ -204,134 +488,93 @@ impl Config {
         self.internal.loghook = Some(hook);
     }
 
-    pub fn compile_and_call(&mut self, m: &mut WindowManager, w: &dyn WindowSystem) {
-        let toml = format!("{}/Cargo.toml", self.internal.wtftw_dir.clone());
+    //     pub fn compile(&self) -> bool {
+    //         info!("updating dependencies");
+    //         Command::new("cargo")
+    //             .current_dir(&Path::new(&self.internal.wtftw_dir.clone()))
+    //             .arg("update")
+    //             .env("RUST_LOG", "none")
+    //             .output()
+    //             .unwrap();
+    //         info!("compiling config module");
+    //         let output = Command::new("cargo")
+    //             .current_dir(&Path::new(&self.internal.wtftw_dir.clone()))
+    //             .arg("build") //.arg("--release")
+    //             .env("RUST_LOG", "none")
+    //             .output();
 
-        if !path_exists(&self.internal.wtftw_dir.clone()) {
-            match create_dir_all(Path::new(&self.internal.wtftw_dir.clone())) {
-                Ok(()) => (),
-                Err(e) => panic!(format!(
-                    "mkdir: {} failed with error {}",
-                    self.internal.wtftw_dir.clone(),
-                    e
-                )),
-            }
-        }
+    //         match output {
+    //             Ok(o) => {
+    //                 if o.status.success() {
+    //                     info!("config module compiled");
+    //                     true
+    //                 } else {
+    //                     error!("error compiling config module");
 
-        if !path_exists(&toml.clone()) {
-            let file = File::create(Path::new(&toml).as_os_str());
-            file.unwrap()
-                .write(
-                    "[project]\n\
-                                     name = \"config\"\n\
-                                     version = \"0.0.0\"\n\
-                                     authors = [\"wtftw\"]\n\n\
-                                     [dependencies.wtftw_contrib]
-                                     git = \"https://github.com/jiaanguo/wtftw-contrib.git\"\n
-                                     [dependencies.wtftw]\n\
-                                     git = \"https://github.com/jiaanguo/wtftw.git\"\n\n\
-                                     [lib]\n\
-                                     name = \"config\"\n\
-                                     crate-type = [\"dylib\"]"
-                        .as_bytes(),
-                )
-                .unwrap();
-        }
+    //                     spawn(move || {
+    //                         Command::new("xmessage").arg("\"error compiling config module. run 'cargo build' in ~/.wtftw to get more info.\"").spawn().unwrap();
+    //                     });
+    //                     false
+    //                 }
+    //             }
+    //             Err(err) => {
+    //                 error!("error compiling config module");
+    //                 spawn(move || {
+    //                     Command::new("xmessage")
+    //                         .arg(err.description())
+    //                         .spawn()
+    //                         .unwrap();
+    //                 });
+    //                 false
+    //             }
+    //         }
+    //     }
 
-        let config_source = format!("{}/src/config.rs", self.internal.wtftw_dir.clone());
-        if path_exists(&config_source) && self.compile() {
-            self.call(m, w)
-        } else {
-            self.default_configuration(w);
-        }
-    }
+    //     pub fn call(&mut self, m: &mut WindowManager, w: &dyn WindowSystem) {
+    //         debug!("looking for config module");
+    //         let mut contents = read_dir(&Path::new(&format!(
+    //             "{}/target/debug",
+    //             self.internal.wtftw_dir.clone()
+    //         )))
+    //         .unwrap();
+    //         let libname = contents.find(|x| match x {
+    //             &Ok(ref y) => y
+    //                 .path()
+    //                 .into_os_string()
+    //                 .as_os_str()
+    //                 .to_str()
+    //                 .unwrap()
+    //                 .contains("libconfig.so"),
+    //             &Err(_) => false,
+    //         });
 
-    pub fn compile(&self) -> bool {
-        info!("updating dependencies");
-        Command::new("cargo")
-            .current_dir(&Path::new(&self.internal.wtftw_dir.clone()))
-            .arg("update")
-            .env("RUST_LOG", "none")
-            .output()
-            .unwrap();
-        info!("compiling config module");
-        let output = Command::new("cargo")
-            .current_dir(&Path::new(&self.internal.wtftw_dir.clone()))
-            .arg("build") //.arg("--release")
-            .env("RUST_LOG", "none")
-            .output();
+    //         if let Ok(lib) = DynamicLibrary::open(Some(&Path::new(
+    //             &libname
+    //                 .unwrap()
+    //                 .unwrap()
+    //                 .path()
+    //                 .as_os_str()
+    //                 .to_str()
+    //                 .unwrap(),
+    //         ))) {
+    //             unsafe {
+    //                 if let Ok(symbol) = lib.symbol("configure") {
+    //                     let result = mem::transmute::<
+    //                         *mut u8,
+    //                         extern "C" fn(&mut WindowManager, &dyn WindowSystem, &mut Config),
+    //                     >(symbol);
 
-        match output {
-            Ok(o) => {
-                if o.status.success() {
-                    info!("config module compiled");
-                    true
-                } else {
-                    error!("error compiling config module");
-
-                    spawn(move || {
-                        Command::new("xmessage").arg("\"error compiling config module. run 'cargo build' in ~/.wtftw to get more info.\"").spawn().unwrap();
-                    });
-                    false
-                }
-            }
-            Err(err) => {
-                error!("error compiling config module");
-                spawn(move || {
-                    Command::new("xmessage")
-                        .arg(err.description())
-                        .spawn()
-                        .unwrap();
-                });
-                false
-            }
-        }
-    }
-
-    pub fn call(&mut self, m: &mut WindowManager, w: &dyn WindowSystem) {
-        debug!("looking for config module");
-        let mut contents = read_dir(&Path::new(&format!(
-            "{}/target/debug",
-            self.internal.wtftw_dir.clone()
-        )))
-        .unwrap();
-        let libname = contents.find(|x| match x {
-            &Ok(ref y) => y
-                .path()
-                .into_os_string()
-                .as_os_str()
-                .to_str()
-                .unwrap()
-                .contains("libconfig.so"),
-            &Err(_) => false,
-        });
-
-        if let Ok(lib) = DynamicLibrary::open(Some(&Path::new(
-            &libname
-                .unwrap()
-                .unwrap()
-                .path()
-                .as_os_str()
-                .to_str()
-                .unwrap(),
-        ))) {
-            unsafe {
-                if let Ok(symbol) = lib.symbol("configure") {
-                    let result = mem::transmute::<
-                        *mut u8,
-                        extern "C" fn(&mut WindowManager, &dyn WindowSystem, &mut Config),
-                    >(symbol);
-
-                    self.internal.library = Some(lib);
-                    result(m, w, self);
-                } else {
-                    error!("Error loading config module")
-                }
-            }
-        }
-    }
+    //                     self.internal.library = Some(lib);
+    //                     result(m, w, self);
+    //                 } else {
+    //                     error!("Error loading config module")
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 }
 
-fn path_exists(path: &String) -> bool {
-    metadata(path).is_ok()
-}
+// fn path_exists(path: &String) -> bool {
+//     metadata(path).is_ok()
+// }
