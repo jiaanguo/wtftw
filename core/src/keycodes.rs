@@ -344,5 +344,5 @@ enum KeyCode {
     KeyCode_udiaeresis,
     KeyCode_yacute,
     KeyCode_thorn,
-    KeyCode_ydiaeresis
+    KeyCode_ydiaeresis,
 }

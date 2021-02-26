@@ -1,9 +1,6 @@
 use crate::config::GeneralConfig;
 use crate::window_manager::WindowManager;
-
-use self::libc::{c_int, c_ulong};
-use crate::config::GeneralConfig;
-use crate::window_manager::WindowManager;
+use libc::{c_int, c_ulong};
 use std::fmt::{Debug, Error, Formatter};
 
 pub type Window = u64;

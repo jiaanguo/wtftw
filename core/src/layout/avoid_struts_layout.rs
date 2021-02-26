@@ -1,8 +1,8 @@
-use num::traits::Bounded;
 use crate::config::GeneralConfig;
 use crate::core::stack::Stack;
 use crate::layout::{Direction, Layout, LayoutMessage};
 use crate::window_system::{Rectangle, Window, WindowSystem};
+use num::Bounded;
 
 use std::collections::BTreeSet;
 

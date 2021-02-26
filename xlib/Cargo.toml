@@ -6,8 +6,8 @@ authors = ["Simon Wollwage"]
 edition = "2018"
 
 [dependencies]
-log = "0.4.8"
-libc = "0.2.71"
+log = "0.4.14"
+libc = "0.2.86"
 x11 = { version = "2.18.2", features = ["xlib", "xinerama"] }
 
 [dependencies.wtftw_core]

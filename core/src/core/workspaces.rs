@@ -4,10 +4,10 @@ use crate::core::screen::Screen;
 use crate::core::stack::Stack;
 use crate::core::workspace::Workspace;
 use crate::layout::{Layout, LayoutMessage};
-use std::collections::BTreeMap;
-use std::iter::repeat;
 use crate::window_manager::ScreenDetail;
 use crate::window_system::{Window, WindowSystem};
+use std::collections::BTreeMap;
+use std::iter::repeat;
 
 pub struct Workspaces {
     /// The currently focused and visible screen
@@ -50,16 +50,8 @@ impl Workspaces {
             .enumerate()
             .map(|(id, tag)| Workspace::new(id as u32, tag.clone(), layout.copy(), None))
             .collect();
-        let seen: Vec<Workspace> = workspaces
-            .iter()
-            .take(screens.len())
-            .cloned()
-            .collect();
-        let unseen: Vec<Workspace> = workspaces
-            .iter()
-            .skip(screens.len())
-            .cloned()
-            .collect();
+        let seen: Vec<Workspace> = workspaces.iter().take(screens.len()).cloned().collect();
+        let unseen: Vec<Workspace> = workspaces.iter().skip(screens.len()).cloned().collect();
         let current: Vec<Screen> = seen
             .iter()
             .enumerate()
@@ -366,12 +358,7 @@ impl Workspaces {
             if s.up.is_empty() {
                 s
             } else {
-                let rev: Vec<Window> =
-                    s.up.iter()
-                        .rev()
-                        .chain(s.down.iter())
-                        .copied()
-                        .collect();
+                let rev: Vec<Window> = s.up.iter().rev().chain(s.down.iter()).copied().collect();
                 Stack::<Window>::new(s.focus, Vec::<Window>::new(), rev)
             }
         })
@@ -418,7 +405,8 @@ impl Workspaces {
             self.visible
                 .iter()
                 .filter(|x| x.contains(window))
-                .cloned().next()
+                .cloned()
+                .next()
         }
     }
 

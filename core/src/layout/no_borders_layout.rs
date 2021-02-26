@@ -1,5 +1,5 @@
-use crate::layout::Layout;
 use super::with_borders_layout::WithBordersLayout;
+use crate::layout::Layout;
 
 pub struct NoBordersLayout;
 

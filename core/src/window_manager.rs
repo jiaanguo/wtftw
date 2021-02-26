@@ -1,5 +1,3 @@
-//extern crate collections;
-
 use crate::config::GeneralConfig;
 use crate::core::rational_rect::RationalRect;
 use crate::core::screen::Screen;

@@ -1,6 +1,3 @@
-extern crate libc;
-extern crate serde_json;
-
 use crate::config::{Config, GeneralConfig};
 use crate::core::workspaces::Workspaces;
 use crate::window_manager::WindowManager;
@@ -24,11 +21,11 @@ extern "C" {
 pub mod default {
     use crate::config::GeneralConfig;
     use crate::core::workspaces::Workspaces;
-    use crate::handlers::libc::execvp;
     use crate::window_manager::WindowManager;
     use crate::window_system::Window;
     use crate::window_system::WindowSystem;
     use anyhow::Result;
+    use libc::execvp;
     use std::borrow::ToOwned;
     use std::env;
     use std::ffi::CString;

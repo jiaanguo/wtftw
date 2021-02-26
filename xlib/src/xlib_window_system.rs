@@ -119,8 +119,7 @@ impl XlibWindowSystem {
                 2, // InputOnly
                 ::std::ptr::null_mut(),
                 1 << 9,
-                mem::transmute(attrib_ptr)
-                //as *mut xlib::XSetWindowAttributes,
+                mem::transmute(attrib_ptr), //as *mut xlib::XSetWindowAttributes,
             ) as u64;
 
             let mut f = ::std::fs::File::create("/tmp/window_id.txt").unwrap();
@@ -231,10 +230,13 @@ impl XlibWindowSystem {
                 None
             } else {
                 Some(
-                    from_raw_parts(mem::transmute::<*mut u8, *const u64>(prop_return), nitems_return as usize)
-                        .iter()
-                        .map(|&c| c as u64)
-                        .collect(),
+                    from_raw_parts(
+                        mem::transmute::<*mut u8, *const u64>(prop_return),
+                        nitems_return as usize,
+                    )
+                    .iter()
+                    .map(|&c| c as u64)
+                    .collect(),
                 )
             }
         }
@@ -271,14 +273,7 @@ impl XlibWindowSystem {
         }
     }
 
-    fn change_property(
-        &self,
-        window: Window,
-        property: u64,
-        typ: u64,
-        mode: i32,
-        dat: &mut [u64],
-    ) {
+    fn change_property(&self, window: Window, property: u64, typ: u64, mode: i32, dat: &mut [u64]) {
         unsafe {
             let ptr = dat.as_mut_ptr() as *mut u8;
             xlib::XChangeProperty(
@@ -459,8 +454,7 @@ impl WindowSystem for XlibWindowSystem {
                         .into_owned()
                 }
             } else {
-                str::from_utf8_unchecked(CStr::from_ptr(name as *const i8).to_bytes())
-                    .to_owned()
+                str::from_utf8_unchecked(CStr::from_ptr(name as *const i8).to_bytes()).to_owned()
             }
         }
     }

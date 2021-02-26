@@ -60,7 +60,8 @@ impl<T: Clone + Eq> Stack<T> {
         let lrs: Vec<T> = (vec![self.focus.clone()])
             .iter()
             .chain(self.down.iter())
-            .filter(|&x| f(x)).cloned()
+            .filter(|&x| f(x))
+            .cloned()
             .collect();
 
         if !lrs.is_empty() {

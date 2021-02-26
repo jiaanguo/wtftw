@@ -3,7 +3,6 @@ use crate::core::stack::Stack;
 use crate::layout::{Layout, LayoutMessage};
 use crate::window_system::{Rectangle, Window, WindowSystem};
 
-
 pub struct GapLayout {
     gap: u32,
     layout: Box<dyn Layout>,

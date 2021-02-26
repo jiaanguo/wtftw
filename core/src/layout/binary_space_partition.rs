@@ -573,7 +573,7 @@ impl Layout for BinarySpacePartition {
                     self.clone(),
                     ws.len(),
                     BinarySpacePartition::stack_index(st),
-                );;
+                );
 
                 let rs = match bsp {
                     None => self.rectangles(screen),

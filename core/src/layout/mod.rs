@@ -20,7 +20,6 @@ pub use no_borders_layout::*;
 pub use resizable_tall_layout::*;
 pub use with_borders_layout::*;
 
-
 use crate::config::GeneralConfig;
 use crate::core::stack::Stack;
 use crate::window_manager::ScreenDetail;

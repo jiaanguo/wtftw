@@ -38,7 +38,7 @@ pub struct GeneralConfig {
     pub terminal: (String, String),
     /// Keybind for the terminal
     /// Path to the logfile
-    // pub logfile: String,
+    pub logfile: String,
     /// Default tags for workspaces
     pub tags: Vec<String>,
     /// Default launcher application
@@ -56,7 +56,7 @@ impl Clone for GeneralConfig {
             border_color: self.border_color,
             border_width: self.border_width,
             terminal: self.terminal.clone(),
-            // logfile: self.logfile.clone(),
+            logfile: self.logfile.clone(),
             tags: self.tags.clone(),
             launcher: self.launcher.clone(),
             mod_mask: self.mod_mask,
