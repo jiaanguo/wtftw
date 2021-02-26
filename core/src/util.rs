@@ -1,7 +1,5 @@
 use crate::config::Config;
 use crate::core::workspaces::Workspaces;
-use crate::window_system::*;
-
 use std::convert::AsRef;
 use std::ffi::OsStr;
 use std::process::Child;
@@ -9,6 +7,7 @@ use std::process::Command;
 use std::process::Stdio;
 use std::rc::Rc;
 use std::sync::RwLock;
+use crate::window_system::*;
 
 #[macro_export]
 macro_rules! add_key_handler_str(
@@ -46,9 +45,7 @@ macro_rules! run(
 );
 
 pub fn run<S: AsRef<OsStr>>(program: S, args: Vec<String>) {
-    match Command::new(program).args(&args).spawn() {
-        _ => (),
-    }
+    Command::new(program).args(&args).spawn().unwrap();
 }
 
 pub fn spawn_pipe<S: AsRef<OsStr>>(

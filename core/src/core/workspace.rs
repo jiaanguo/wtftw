@@ -1,5 +1,5 @@
-use super::stack::Stack;
 use crate::config::GeneralConfig;
+use crate::core::stack::Stack;
 use crate::layout::{Layout, LayoutMessage};
 use crate::window_system::{Window, WindowSystem};
 
@@ -32,10 +32,10 @@ impl Workspace {
         stack: Option<Stack<Window>>,
     ) -> Workspace {
         Workspace {
-            id: id,
-            tag: tag,
-            layout: layout,
-            stack: stack,
+            id,
+            tag,
+            layout,
+            stack,
         }
     }
 
@@ -56,7 +56,11 @@ impl Workspace {
 
     /// Returns the number of windows contained in this workspace
     pub fn len(&self) -> usize {
-        self.stack.clone().map_or(0, |x| x.len())
+        self.stack.clone().map_or(0usize, |x| x.len())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Checks if the workspace contains the given window
@@ -92,7 +96,7 @@ impl Workspace {
             self.id,
             self.tag.clone(),
             self.layout.copy(),
-            self.stack.clone().map_or(None, |x| f(x)),
+            self.stack.clone().and_then(|x| f(x)),
         )
     }
 

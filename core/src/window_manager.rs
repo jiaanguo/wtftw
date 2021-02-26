@@ -1,3 +1,5 @@
+//extern crate collections;
+
 use crate::config::GeneralConfig;
 use crate::core::rational_rect::RationalRect;
 use crate::core::screen::Screen;
@@ -7,8 +9,6 @@ use crate::layout::LayoutMessage;
 use crate::window_system::Rectangle;
 use crate::window_system::Window;
 use crate::window_system::WindowSystem;
-
-use log::debug;
 
 use std::cmp;
 use std::collections::BTreeMap;
@@ -88,22 +88,22 @@ impl WindowManager {
             .iter()
             .chain(self.workspaces.hidden.iter())
             .skip(screens.len())
-            .map(|x| x.clone())
+            .cloned()
             .collect();
         let sc: Vec<Screen> = visible
             .iter()
             .chain(self.workspaces.hidden.iter())
             .take(screens.len())
-            .map(|x| x.clone())
+            .cloned()
             .enumerate()
             .zip(screens.iter())
-            .map(|((a, b), &c)| Screen::new(b.clone(), a as u32, c))
+            .map(|((a, b), &c)| Screen::new(b, a as u32, c))
             .collect();
 
         self.modify_workspaces(|w: &Workspaces| {
             let mut r = w.clone();
             r.current = sc.first().unwrap().clone();
-            r.visible = sc.iter().skip(1).map(|x| x.clone()).collect();
+            r.visible = sc.iter().skip(1).cloned().collect();
             r.hidden = hidden.clone();
             r
         })
@@ -118,23 +118,20 @@ impl WindowManager {
             .workspaces
             .screens()
             .into_iter()
-            .map(|s| {
-                let mut ms = s.clone();
-                ms.workspace.layout.apply_layout(
+            .map(|mut s| {
+                s.workspace.layout.apply_layout(
                     window_system,
-                    ms.screen_detail,
+                    s.screen_detail,
                     config,
                     &self
                         .workspaces
-                        .view(ms.workspace.id)
+                        .view(s.workspace.id)
                         .current
                         .workspace
                         .stack
-                        .map_or(None, |x| {
-                            x.filter(|w| !self.workspaces.floating.contains_key(w))
-                        }),
+                        .and_then(|x| x.filter(|w| !self.workspaces.floating.contains_key(w))),
                 );
-                ms
+                s
             })
             .collect();
 
@@ -273,7 +270,7 @@ impl WindowManager {
             .into_iter()
             .collect::<BTreeSet<_>>()
             .difference(&old_visible)
-            .map(|&x| x)
+            .copied()
             .collect::<Vec<Window>>();
 
         // Initialize all new windows
@@ -307,8 +304,8 @@ impl WindowManager {
                     .current
                     .workspace
                     .stack
-                    .map_or(None, |x| x.filter(|win| !ws.floating.contains_key(win)))
-                    .map_or(None, |x| x.filter(|win| !vis.contains(win)));
+                    .and_then(|x| x.filter(|win| !ws.floating.contains_key(win)))
+                    .and_then(|x| x.filter(|win| !vis.contains(win)));
                 let view_rect = w.screen_detail;
 
                 let rs = wsp
@@ -344,7 +341,7 @@ impl WindowManager {
         }
 
         visible.iter().fold((), |_, &x| {
-            window_system.set_window_border_color(x, config.border_color.clone())
+            window_system.set_window_border_color(x, config.border_color)
         });
         visible.iter().fold((), |_, &x| {
             window_system.set_window_border_width(x, config.border_width)
@@ -356,18 +353,18 @@ impl WindowManager {
 
         match ws.peek() {
             Some(focused_window) => {
-                window_system
-                    .set_window_border_color(focused_window, config.focus_border_color.clone());
+                window_system.set_window_border_color(focused_window, config.focus_border_color);
                 window_system.focus_window(focused_window, self);
             }
             None => window_system.focus_window(window_system.get_root(), self),
         }
 
-        let to_hide = (old_visible.union(&new_windows.into_iter().collect::<BTreeSet<_>>()))
-            .map(|&x| x)
+        let to_hide = old_visible
+            .union(&new_windows.into_iter().collect())
+            .copied()
             .collect::<BTreeSet<_>>()
-            .difference(&visible.into_iter().collect::<BTreeSet<_>>())
-            .map(|&x| x)
+            .difference(&visible.into_iter().collect())
+            .copied()
             .collect::<Vec<_>>();
 
         for &win in to_hide.iter() {
@@ -460,8 +457,7 @@ impl WindowManager {
         window: Window,
     ) -> WindowManager {
         let rect = self.float_location(window_system, window);
-        let result = self.windows(window_system, config, &|w| w.float(window, rect));
-        result
+        self.windows(window_system, config, &|w| w.float(window, rect))
     }
 
     pub fn mouse_drag(
@@ -474,7 +470,7 @@ impl WindowManager {
         let motion = Rc::new(Box::new(move |x, y, window_manager, w: &dyn WindowSystem| {
             let z = f(x, y, window_manager, w);
             w.remove_motion_events();
-            z.clone()
+            z
         }) as MouseDrag);
 
         WindowManager {
@@ -568,12 +564,7 @@ impl WindowManager {
     pub fn insert_or_update_unmap(&self, window: Window) -> WindowManager {
         let mut new_map = self.waiting_unmap.clone();
 
-        if new_map.contains_key(&window) {
-            let v = new_map[&window] + 1;
-            new_map.insert(window, v);
-        } else {
-            new_map.insert(window, 1);
-        }
+        *new_map.entry(window).or_insert(0) += 1;
 
         WindowManager {
             running: self.running,

@@ -6,9 +6,9 @@ authors = ["Simon Wollwage"]
 edition = "2018"
 
 [dependencies]
-log = "*"
-libc = "*"
-x11 = { version = "*", features = ["xlib", "xinerama"] }
+log = "0.4.8"
+libc = "0.2.71"
+x11 = { version = "2.18.2", features = ["xlib", "xinerama"] }
 
 [dependencies.wtftw_core]
 path = "../core"

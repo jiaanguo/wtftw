@@ -1,9 +1,9 @@
 use crate::config::GeneralConfig;
 use crate::window_manager::WindowManager;
 
-use bitflags::bitflags;
-use libc::{c_int, c_ulong};
-
+use self::libc::{c_int, c_ulong};
+use crate::config::GeneralConfig;
+use crate::window_manager::WindowManager;
 use std::fmt::{Debug, Error, Formatter};
 
 pub type Window = u64;
@@ -49,16 +49,13 @@ pub struct KeyCommand {
 
 impl KeyCommand {
     pub fn new(key: u64, mask: KeyModifiers) -> KeyCommand {
-        KeyCommand {
-            key: key,
-            mask: mask,
-        }
+        KeyCommand { key, mask }
     }
 }
 
 impl Debug for KeyCommand {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        f.write_str(&format!("{:}", self.key)).unwrap();
+        f.write_str(&format!("{:}", self.key))?;
         Ok(())
     }
 }
@@ -78,24 +75,21 @@ impl Debug for MouseCommand {
 
 impl MouseCommand {
     pub fn new(button: MouseButton, mask: KeyModifiers) -> MouseCommand {
-        MouseCommand {
-            button: button,
-            mask: mask,
-        }
+        MouseCommand { button, mask }
     }
 }
 
 bitflags! {
     pub struct KeyModifiers : u32 {
-        const NONEMASK    = (0 << 0);
-        const SHIFTMASK   = (1 << 0);
-        const LOCKMASK    = (1 << 1);
-        const CONTROLMASK = (1 << 2);
-        const MOD1MASK    = (1 << 3);
-        const MOD2MASK    = (1 << 4);
-        const MOD3MASK    = (1 << 5);
-        const MOD4MASK    = (1 << 6);
-        const MOD5MASK    = (1 << 7);
+        const NONEMASK    = 0;
+        const SHIFTMASK   = 1;
+        const LOCKMASK    = 2;
+        const CONTROLMASK = 4;
+        const MOD1MASK    = 8;
+        const MOD2MASK    = 16;
+        const MOD3MASK    = 32;
+        const MOD4MASK    = 64;
+        const MOD5MASK    = 128;
     }
 }
 

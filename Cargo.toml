@@ -1,29 +1,28 @@
 [project]
 name = "wtftw"
-version = "0.4.5"
+version = "0.4.4"
 authors = ["Simon Wollwage"]
 edition = "2018"
 
 [dependencies]
-bitflags = "*"
-serde_json = "*"
-getopts = "*"
-log = "*"
-libc = "*"
-dylib = "*"
-zombie = "*"
-dirs = "*"
-simplelog = "*"
-num = "*"
-simple-logging = "*"
+anyhow = "1.0.34"
+bitflags = "1.2.1"
+serde_json = "1.0.59"
+getopts = "0.2.21"
+log = "0.4.11"
+libc = "0.2.80"
+dylib = "0.0.3"
+simplelog = "0.8.0"
+zombie = "0.0.4"
 wtftw_core = { path = "core" }
+dirs = "3.0.1"
 
 [dependencies.wtftw_xlib]
 path = "xlib"
 
 [lib]
 name = "wtftw"
-path = "core/src/wtftw.rs"
+path = "core/src/lib.rs"
 
 [[bin]]
 name = "wtftw"

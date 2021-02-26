@@ -1,4 +1,6 @@
-use wtftw_core::core::stack::Stack;
+extern crate wtftw_core;
+
+use self::wtftw_core::core::stack::Stack;
 
 #[test]
 fn stack_add() {
@@ -47,7 +49,7 @@ fn stack_reverse() {
     let v2 = vec!(4, 5, 6);
 
     let s1 = Stack::new(1, v1.clone(), v2.clone());
-    let s2 = Stack::new(1, v2.clone(), v1.clone());
+    let s2 = Stack::new(1, v2, v1);
 
     assert!(s1.reverse() == s2);
     assert!(s2.reverse() == s1);

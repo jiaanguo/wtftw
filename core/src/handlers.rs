@@ -1,3 +1,6 @@
+extern crate libc;
+extern crate serde_json;
+
 use crate::config::{Config, GeneralConfig};
 use crate::core::workspaces::Workspaces;
 use crate::window_manager::WindowManager;
@@ -21,12 +24,11 @@ extern "C" {
 pub mod default {
     use crate::config::GeneralConfig;
     use crate::core::workspaces::Workspaces;
+    use crate::handlers::libc::execvp;
     use crate::window_manager::WindowManager;
     use crate::window_system::Window;
     use crate::window_system::WindowSystem;
-    use libc::execvp;
-    use log::debug;
-    use serde_json::json;
+    use anyhow::Result;
     use std::borrow::ToOwned;
     use std::env;
     use std::ffi::CString;
@@ -56,12 +58,12 @@ pub mod default {
                 Command::new(&terminal).args(&arguments[..]).spawn()
             };
 
-            if let Err(_) = command {
+            if command.is_err() {
                 panic!("unable to start terminal")
             }
         });
 
-        window_manager.clone()
+        window_manager
     }
 
     pub fn start_launcher(
@@ -78,7 +80,7 @@ pub mod default {
             }
         });
 
-        window_manager.clone()
+        window_manager
     }
 
     pub fn switch_to_workspace(
@@ -103,15 +105,13 @@ pub mod default {
     /// with the new one in memory.
     /// Pass a list of all windows to it via command line arguments
     /// so it may resume work as usual.
-    pub fn restart<'a>(
+    pub fn restart(
         window_manager: WindowManager,
         _: Rc<dyn WindowSystem>,
         c: &GeneralConfig,
-    ) -> WindowManager {
+    ) -> Result<WindowManager> {
         // Get absolute path to binary
-        let filename = env::current_dir()
-            .unwrap()
-            .join(&env::current_exe().unwrap());
+        let filename = env::current_dir()?.join(&env::current_exe()?);
         // Collect all managed windows
         let window_ids: String =
             json!(&window_manager.workspaces.all_windows_with_workspaces()).to_string();
@@ -119,26 +119,26 @@ pub mod default {
         // Create arguments
         let resume = &"--resume";
         let windows = window_ids;
-        let filename_c =
-            CString::new(filename.into_os_string().into_string().unwrap().as_bytes()).unwrap();
+        let filename_c = CString::new(filename.into_os_string().into_string().unwrap().as_bytes())?;
 
-        for ref p in c.pipes.iter() {
-            match p.write().unwrap().wait() {
-                _ => (),
-            }
+        for p in c.pipes.iter() {
+            p.write().unwrap().wait()?;
         }
+
+        let resume_str = CString::new(resume.as_bytes())?;
+        let windows_str = CString::new(windows.as_bytes())?;
 
         unsafe {
             let slice: &mut [*const i8; 4] = &mut [
                 filename_c.as_ptr(),
-                CString::new(resume.as_bytes()).unwrap().as_ptr(),
-                CString::new(windows.as_bytes()).unwrap().as_ptr(),
+                resume_str.as_ptr(),
+                windows_str.as_ptr(),
                 null(),
             ];
             execvp(filename_c.as_ptr(), slice.as_mut_ptr());
         }
 
-        window_manager.clone()
+        Ok(window_manager)
     }
 
     /// Stop the window manager
@@ -147,7 +147,7 @@ pub mod default {
             running: false,
             dragging: None,
             workspaces: w.workspaces,
-            waiting_unmap: w.waiting_unmap.clone(),
+            waiting_unmap: w.waiting_unmap,
         }
     }
 

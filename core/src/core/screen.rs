@@ -1,6 +1,6 @@
-use super::stack::Stack;
-use super::workspace::Workspace;
 use crate::config::GeneralConfig;
+use crate::core::stack::Stack;
+use crate::core::workspace::Workspace;
 use crate::layout::LayoutMessage;
 use crate::window_manager::ScreenDetail;
 use crate::window_system::{Window, WindowSystem};
@@ -16,7 +16,7 @@ impl Clone for Screen {
         Screen {
             workspace: self.workspace.clone(),
             screen_id: self.screen_id,
-            screen_detail: self.screen_detail.clone(),
+            screen_detail: self.screen_detail,
         }
     }
 }
@@ -26,9 +26,9 @@ impl Screen {
     /// and the given dimensions
     pub fn new(workspace: Workspace, screen_id: u32, screen_detail: ScreenDetail) -> Screen {
         Screen {
-            workspace: workspace,
-            screen_id: screen_id,
-            screen_detail: screen_detail,
+            workspace,
+            screen_id,
+            screen_detail,
         }
     }
 
@@ -42,6 +42,10 @@ impl Screen {
     /// screen's workspace
     pub fn len(&self) -> usize {
         self.workspace.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.workspace.is_empty()
     }
 
     pub fn windows(&self) -> Vec<Window> {

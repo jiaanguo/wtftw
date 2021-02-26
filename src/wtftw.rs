@@ -1,11 +1,17 @@
-use getopts::Options;
-use log::LevelFilter;
-use log::{debug, info};
-// use simplelog;
-use simple_logging;
+#[macro_use]
+extern crate log;
+extern crate getopts;
+extern crate serde_json;
+extern crate wtftw_core;
+extern crate wtftw_xlib;
+extern crate zombie;
+extern crate simplelog;
+
+use anyhow::Result;
 use std::env;
-use std::ops::Deref;
 use std::rc::Rc;
+use std::ops::Deref;
+use getopts::Options;
 use wtftw_core::config::Config;
 use wtftw_core::window_manager::WindowManager;
 use wtftw_core::window_system::*;
@@ -14,64 +20,46 @@ use wtftw_xlib::XlibWindowSystem;
 pub fn parse_window_ids(ids: &str) -> Vec<(Window, u32)> {
     match serde_json::from_str(ids) {
         Ok(x) => x,
-        _ => Vec::new(),
+        _     => Vec::new()
     }
 }
 
-fn init_file_logging() {
-    simple_logging::log_to_file("/home/jiaanguo/wtftw.log", LevelFilter::Info);
+fn init_terminal_logger(verbose_mode_enabled: bool) {
+    let level =  if verbose_mode_enabled { simplelog::LevelFilter::Debug } else { simplelog::LevelFilter::Warn };
+    simplelog::CombinedLogger::init(vec![
+        simplelog::TermLogger::new(level, simplelog::Config::default(), simplelog::TerminalMode::Mixed),
+    ]).unwrap();
 }
 
-// fn init_terminal_logger(verbose_mode_enabled: bool) {
-//     let level = if verbose_mode_enabled {
-//         simplelog::LevelFilter::Debug
-//     } else {
-//         simplelog::LevelFilter::Warn
-//     };
-//     simplelog::CombinedLogger::init(vec![simplelog::TermLogger::new(
-//         level,
-//         simplelog::Config::default(),
-//         simplelog::TerminalMode::Mixed,
-//     )
-//     .unwrap()])
-//     .unwrap();
-// }
-
-fn main() {
+fn main() -> Result<()> {
     // Parse command line arguments
-    let args: Vec<String> = env::args().collect();
+    let args : Vec<String> = env::args().collect();
 
     let mut options = Options::new();
-    options.optopt(
-        "r",
-        "resume",
-        "list of window IDs to capture in resume",
-        "WINDOW",
-    );
+    options.optopt("r", "resume", "list of window IDs to capture in resume", "WINDOW");
     options.optflag("v", "verbose", "be verbose");
 
     let matches = match options.parse(args.into_iter().skip(1).collect::<Vec<_>>()) {
-        Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
+        Ok(m)  => m,
+        Err(f) => panic!(f.to_string())
     };
 
-    // init_terminal_logger(matches.opt_present("v"));
-    init_file_logging();
+    init_terminal_logger(matches.opt_present("v"));
 
     // Create a default config.generaluration
-    let mut config = Config::initialize();
+    let mut config = Config::initialize()?;
     // Initialize window system. Use xlib here for now
     debug!("initialize window system");
     let xlib = XlibWindowSystem::new();
-    let window_system: Rc<dyn WindowSystem> = Rc::new(xlib);
+    let window_system : Rc<dyn WindowSystem> = Rc::new(xlib);
     // Create the actual window manager
     debug!("create window manager");
     let mut window_manager = WindowManager::new(window_system.deref(), &config.general);
 
     // If available, compile the config.general file at ~/.wtftw/config.general.rs
     // and call the config.generalure method
-    // config.compile_and_call(&mut window_manager, window_system.deref());
-    // window_manager = WindowManager::new(window_system.deref(), &config.general);
+    config.compile_and_call(&mut window_manager, window_system.deref());
+    window_manager = WindowManager::new(window_system.deref(), &config.general);
 
     // Output some initial information
     info!("WTFTW - Window Tiling For The Win");
@@ -91,7 +79,7 @@ fn main() {
     );
 
     for (command, _) in config.internal.key_handlers.iter() {
-        window_system.grab_keys(vec![command.clone()]);
+        window_system.grab_keys(vec!(*command));
     }
 
     for (&command, _) in config.internal.mouse_handlers.iter() {
@@ -108,32 +96,25 @@ fn main() {
 
     for (window, workspace) in window_ids {
         debug!("re-inserting window {}", window);
-        window_manager = window_manager
-            .view(window_system.deref(), workspace, &config.general)
-            .manage(window_system.deref(), window, &config.general)
-            .windows(window_system.deref(), &config.general, &|x| {
-                (config.internal.manage_hook)(x.clone(), window_system.clone(), window)
-            });
+        window_manager = window_manager.view(window_system.deref(), workspace, &config.general)
+            .manage(window_system.deref(), window, &config.general).windows(window_system.deref(), &config.general,
+                                                        &|x| (config.internal.manage_hook)(x.clone(),
+                                                        window_system.clone(), window));
     }
 
-    window_manager =
-        (*config.internal.startup_hook)(window_manager, window_system.clone(), &config);
+    window_manager = (*config.internal.startup_hook)(window_manager, window_system.clone(), &config);
 
     // Enter the event loop and just listen for events
     while window_manager.running {
         let event = window_system.clone().get_event();
         match event {
-            WindowSystemEvent::ClientMessageEvent(_, _, _, _) => {}
+            WindowSystemEvent::ClientMessageEvent(_, _, _, _) => {
+            },
             WindowSystemEvent::PropertyMessageEvent(process, window, atom) => {
                 if process {
-                    window_manager = window_system.process_message(
-                        &window_manager,
-                        &config.general,
-                        window,
-                        atom,
-                    );
+                    window_manager = window_system.process_message(&window_manager, &config.general, window, atom);
                 }
-            }
+            },
             // The X11/Wayland configuration changed, so we need to readjust the
             // screen configurations.
             WindowSystemEvent::ConfigurationNotification(window) => {
@@ -141,7 +122,7 @@ fn main() {
                     debug!("screen configuration changed. rescreen");
                     window_manager = window_manager.rescreen(window_system.deref());
                 }
-            }
+            },
             // A window asked to be reconfigured (i.e. resized, border change, etc.)
             WindowSystemEvent::ConfigurationRequest(window, window_changes, mask) => {
                 let floating = window_manager
@@ -151,24 +132,20 @@ fn main() {
                     .any(|(&x, _)| x == window)
                     || !window_manager.workspaces.contains(window);
                 window_system.configure_window(window, window_changes, mask, floating);
-                window_manager =
-                    window_manager.windows(window_system.deref(), &config.general, &|x| x.clone());
-            }
+                window_manager = window_manager.windows(window_system.deref(), &config.general, &|x| x.clone());
+            },
             // A new window was created, so we need to manage
             // it unless it is already managed by us.
             WindowSystemEvent::WindowCreated(window) => {
-                if window_manager.is_window_managed(window)
-                    || window_system.overrides_redirect(window)
-                {
+                if window_manager.is_window_managed(window) || window_system.overrides_redirect(window) {
                     continue;
                 }
 
-                window_manager = window_manager
-                    .manage(window_system.deref(), window, &config.general)
-                    .windows(window_system.deref(), &config.general, &|x| {
-                        (config.internal.manage_hook)(x.clone(), window_system.clone(), window)
-                    });
-            }
+                window_manager = window_manager.manage(window_system.deref(), window, &config.general)
+                                               .windows(window_system.deref(), &config.general,
+                                                        &|x| (config.internal.manage_hook)(x.clone(),
+                                                        window_system.clone(), window));
+            },
             WindowSystemEvent::WindowUnmapped(window, synthetic) => {
                 if synthetic && window_manager.is_window_managed(window) {
                     window_manager = if synthetic || !window_manager.is_waiting_unmap(window) {
@@ -178,11 +155,10 @@ fn main() {
                     };
                 }
                 zombie::collect_zombies();
-            }
+            },
             WindowSystemEvent::WindowDestroyed(window) => {
                 if window_manager.is_window_managed(window) {
-                    window_manager = window_manager
-                        .unmanage(window_system.deref(), window, &config.general)
+                    window_manager = window_manager.unmanage(window_system.deref(), window, &config.general)
                         .remove_from_unmap(window);
                 }
             }
@@ -190,10 +166,9 @@ fn main() {
             // is enabled, we need to set focus to it.
             WindowSystemEvent::Enter(window) => {
                 if config.general.focus_follows_mouse && window_manager.is_window_managed(window) {
-                    window_manager =
-                        window_manager.focus(window, window_system.deref(), &config.general);
+                    window_manager = window_manager.focus(window, window_system.deref(), &config.general);
                 }
-            }
+            },
             // Mouse button has been pressed. We need to check if there is a mouse handler
             // associated and if necessary, call it. Otherwise it results in a focus action.
             WindowSystemEvent::ButtonPressed(window, subwindow, button, _, _) => {
@@ -206,22 +181,14 @@ fn main() {
                         // If it's a root window, then it's an event we grabbed
                         if is_root && !is_sub_root {
                             let local_window_manager = window_manager.clone();
-                            window_manager = action(
-                                local_window_manager,
-                                window_system.clone(),
-                                &config.general,
-                                subwindow,
-                            );
+                            window_manager = action(local_window_manager, window_system.clone(),
+                                                          &config.general, subwindow);
                         }
                     }
                     None => {
                         // Otherwise just clock to focus
                         if !is_root {
-                            window_manager = window_manager.focus(
-                                window,
-                                window_system.deref(),
-                                &config.general,
-                            );
+                            window_manager = window_manager.focus(window, window_system.deref(), &config.general);
                         }
                     }
                 }
@@ -229,7 +196,7 @@ fn main() {
             WindowSystemEvent::ButtonReleased => {
                 // If we were dragging, release the pointer and
                 // reset the dragging closure
-                if let Some(_) = window_manager.dragging {
+                if window_manager.dragging.is_some() {
                     window_system.ungrab_pointer();
                     window_manager.dragging = None;
                 }
@@ -237,11 +204,8 @@ fn main() {
             WindowSystemEvent::KeyPressed(_, key) => {
                 if config.internal.key_handlers.contains_key(&key) {
                     let local_window_manager = window_manager.clone();
-                    window_manager = config.internal.key_handlers[&key](
-                        local_window_manager,
-                        window_system.clone(),
-                        &config.general,
-                    );
+                    window_manager = config.internal.key_handlers[&key](local_window_manager,
+                        window_system.clone(), &config.general);
                 }
             }
             WindowSystemEvent::MouseMotion(x, y) => {
@@ -260,4 +224,6 @@ fn main() {
 
         window_system.update_server_state(&window_manager);
     }
+
+    Ok(())
 }
