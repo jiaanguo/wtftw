@@ -5,7 +5,7 @@ use crate::handlers::default::{
 use crate::handlers::{KeyHandler, LogHook, ManageHook, MouseHandler, StartupHook};
 use crate::layout::{
     AvoidStrutsLayout, BinarySpacePartition, Direction, FullLayout, GapLayout, Layout,
-    LayoutCollection, LayoutMessage, MirrorLayout, NoBordersLayout,
+    LayoutCollection, LayoutMessage, MirrorLayout, NoBordersLayout, TallLayout,
 };
 use crate::window_manager::WindowManager;
 use crate::window_system::{
@@ -46,7 +46,7 @@ pub struct GeneralConfig {
     pub terminal: (String, String),
     /// Keybind for the terminal
     /// Path to the logfile
-    pub logfile: String,
+    // pub logfile: String,
     /// Default tags for workspaces
     pub tags: Vec<String>,
     /// Default launcher application
@@ -64,7 +64,7 @@ impl Clone for GeneralConfig {
             border_color: self.border_color,
             border_width: self.border_width,
             terminal: self.terminal.clone(),
-            logfile: self.logfile.clone(),
+            // logfile: self.logfile.clone(),
             tags: self.tags.clone(),
             launcher: self.launcher.clone(),
             mod_mask: self.mod_mask.clone(),
@@ -81,11 +81,11 @@ pub struct InternalConfig {
     pub manage_hook: ManageHook,
     pub startup_hook: StartupHook,
     pub loghook: Option<LogHook>,
-    pub wtftw_dir: String,
+    // pub wtftw_dir: String,
 }
 
 impl InternalConfig {
-    pub fn new(manage_hook: ManageHook, startup_hook: StartupHook, home: String) -> InternalConfig {
+    pub fn new(manage_hook: ManageHook, startup_hook: StartupHook) -> InternalConfig {
         InternalConfig {
             library: None,
             key_handlers: BTreeMap::new(),
@@ -93,7 +93,7 @@ impl InternalConfig {
             manage_hook: manage_hook,
             startup_hook: startup_hook,
             loghook: None,
-            wtftw_dir: format!("{}/.wtftw", home),
+            // wtftw_dir: format!("{}/.wtftw", home),
         }
     }
 }
@@ -107,20 +107,20 @@ pub struct Config {
 impl Config {
     /// Create the Config from a json file
     pub fn initialize() -> Config {
-        let home = dirs::home_dir()
-            .unwrap_or(PathBuf::from("./"))
-            .into_os_string()
-            .into_string()
-            .unwrap();
+        // let home = dirs::home_dir()
+        //     .unwrap_or(PathBuf::from("./"))
+        //     .into_os_string()
+        //     .into_string()
+        //     .unwrap();
         // Default version of the config, for fallback
         let general_config = GeneralConfig {
             focus_follows_mouse: true,
-            focus_border_color: 0xebebeb,
-            border_color: 0x404040,
+            focus_border_color: 0x00B6FFB0, //0xebebeb,
+            border_color: 0x00444444, //0x404040,
             border_width: 2,
             mod_mask: KeyModifiers::MOD1MASK,
-            terminal: (String::from("alacrity"), String::from("")),
-            logfile: format!("{}/.wtftw.log", home),
+            terminal: ("alacritty".to_owned(), "".to_owned()),
+            // logfile: format!("{}/wtftw.log", home),
             tags: vec![
                 "1: term".to_owned(),
                 "2: web".to_owned(),
@@ -129,23 +129,24 @@ impl Config {
             ],
             launcher: "rofi".to_owned(),
             pipes: Vec::new(),
-            layout: LayoutCollection::new(vec![
-                GapLayout::new(
-                    8,
-                    AvoidStrutsLayout::new(
-                        vec![Direction::Up, Direction::Down],
-                        BinarySpacePartition::new(),
-                    ),
-                ),
-                GapLayout::new(
-                    8,
-                    AvoidStrutsLayout::new(
-                        vec![Direction::Up, Direction::Down],
-                        MirrorLayout::new(BinarySpacePartition::new()),
-                    ),
-                ),
-                NoBordersLayout::new(Box::new(FullLayout)),
-            ]),
+            layout: Box::new(TallLayout { num_master: 1, increment_ratio: 0.3/100.0, ratio: 0.5 })
+            // LayoutCollection::new(vec![
+            //     GapLayout::new(
+            //         8,
+            //         AvoidStrutsLayout::new(
+            //             vec![Direction::Up, Direction::Down],
+            //             BinarySpacePartition::new(),
+            //         ),
+            //     ),
+            //     GapLayout::new(
+            //         8,
+            //         AvoidStrutsLayout::new(
+            //             vec![Direction::Up, Direction::Down],
+            //             MirrorLayout::new(BinarySpacePartition::new()),
+            //         ),
+            //     ),
+            //     NoBordersLayout::new(Box::new(FullLayout)),
+            // ]),
         };
 
         let internal_config = InternalConfig::new(
@@ -153,7 +154,7 @@ impl Config {
             Box::new(move |a, _, _| a.clone()),
             //Box::new(Config::default_manage_hook),
             //Box::new(Config::default_startup_hook),
-            home,
+            // home,
         );
 
         Config {

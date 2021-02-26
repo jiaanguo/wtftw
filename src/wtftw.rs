@@ -1,6 +1,8 @@
 use getopts::Options;
+use log::LevelFilter;
 use log::{debug, info};
-use simplelog;
+// use simplelog;
+use simple_logging;
 use std::env;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -16,20 +18,24 @@ pub fn parse_window_ids(ids: &str) -> Vec<(Window, u32)> {
     }
 }
 
-fn init_terminal_logger(verbose_mode_enabled: bool) {
-    let level = if verbose_mode_enabled {
-        simplelog::LevelFilter::Debug
-    } else {
-        simplelog::LevelFilter::Warn
-    };
-    simplelog::CombinedLogger::init(vec![simplelog::TermLogger::new(
-        level,
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Mixed,
-    )
-    .unwrap()])
-    .unwrap();
+fn init_file_logging() {
+    simple_logging::log_to_file("/home/jiaanguo/wtftw.log", LevelFilter::Info);
 }
+
+// fn init_terminal_logger(verbose_mode_enabled: bool) {
+//     let level = if verbose_mode_enabled {
+//         simplelog::LevelFilter::Debug
+//     } else {
+//         simplelog::LevelFilter::Warn
+//     };
+//     simplelog::CombinedLogger::init(vec![simplelog::TermLogger::new(
+//         level,
+//         simplelog::Config::default(),
+//         simplelog::TerminalMode::Mixed,
+//     )
+//     .unwrap()])
+//     .unwrap();
+// }
 
 fn main() {
     // Parse command line arguments
@@ -49,7 +55,8 @@ fn main() {
         Err(f) => panic!(f.to_string()),
     };
 
-    init_terminal_logger(matches.opt_present("v"));
+    // init_terminal_logger(matches.opt_present("v"));
+    init_file_logging();
 
     // Create a default config.generaluration
     let mut config = Config::initialize();

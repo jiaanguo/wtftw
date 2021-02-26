@@ -15,6 +15,7 @@ zombie = "*"
 dirs = "*"
 simplelog = "*"
 num = "*"
+simple-logging = "*"
 wtftw_core = { path = "core" }
 
 [dependencies.wtftw_xlib]
